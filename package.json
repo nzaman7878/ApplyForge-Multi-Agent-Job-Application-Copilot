@@ -1,0 +1,10 @@
+{
+  "name": "applyforge",
+  "version": "1.0.0",
+  "description": "Multi-Agent Job Application Copilot",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server"
+  ]
+}

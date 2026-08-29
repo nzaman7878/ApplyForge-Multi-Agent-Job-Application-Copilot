@@ -3,6 +3,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const config = require('./config/env');
+const { connectDB } = require('./config/database');
 
 const app = express();
 
@@ -18,6 +19,12 @@ app.get('/api/health', (req, res) => {
 });
 
 // Start Server
-app.listen(config.port, () => {
-  console.log(`Server is running on port ${config.port} in ${config.env} mode`);
-});
+const startServer = async () => {
+  await connectDB();
+  
+  app.listen(config.port, () => {
+    console.log(`Server is running on port ${config.port} in ${config.env} mode`);
+  });
+};
+
+startServer();

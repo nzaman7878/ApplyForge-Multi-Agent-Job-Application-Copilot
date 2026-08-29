@@ -1,0 +1,47 @@
+const Joi = require('joi');
+require('dotenv').config();
+
+// Define validation for all environment variables
+const envVarsSchema = Joi.object({
+  NODE_ENV: Joi.string()
+    .valid('development', 'production', 'test')
+    .default('development'),
+  PORT: Joi.number().default(5000),
+  
+  // Database Configuration (optional for now until Phase 9)
+  MONGODB_URI: Joi.string().description('MongoDB connection string'),
+  
+  // Auth Secrets (optional until Epic B is complete)
+  JWT_SECRET: Joi.string().description('JWT Secret Key for access tokens'),
+  JWT_EXPIRES_IN: Joi.string().default('7d').description('JWT Expiry duration'),
+  JWT_REFRESH_SECRET: Joi.string().description('JWT Refresh Secret Key'),
+  
+  // AI Configuration (optional until Epic F)
+  ANTHROPIC_API_KEY: Joi.string().description('Anthropic API Key for LangChain/LangGraph'),
+  LLM_MODEL: Joi.string().default('claude-3-5-sonnet-20240620').description('Default LLM Model'),
+  LLM_TEMPERATURE: Joi.number().default(0.7).description('LLM Temperature setting'),
+}).unknown();
+
+const { value: envVars, error } = envVarsSchema.prefs({ errors: { label: 'key' } }).validate(process.env);
+
+if (error) {
+  throw new Error(`Config validation error: ${error.message}`);
+}
+
+module.exports = {
+  env: envVars.NODE_ENV,
+  port: envVars.PORT,
+  mongoose: {
+    url: envVars.MONGODB_URI,
+  },
+  jwt: {
+    secret: envVars.JWT_SECRET,
+    accessExpiration: envVars.JWT_EXPIRES_IN,
+    refreshSecret: envVars.JWT_REFRESH_SECRET,
+  },
+  ai: {
+    anthropicApiKey: envVars.ANTHROPIC_API_KEY,
+    model: envVars.LLM_MODEL,
+    temperature: envVars.LLM_TEMPERATURE,
+  }
+};

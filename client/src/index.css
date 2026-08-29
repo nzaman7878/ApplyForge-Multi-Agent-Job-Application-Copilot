@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@import "./styles/tokens.css";
+@import "./styles/global.css";
 
 @theme {
   --font-sans: "Inter", sans-serif;

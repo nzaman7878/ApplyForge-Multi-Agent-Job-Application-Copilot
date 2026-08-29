@@ -1,0 +1,30 @@
+/* Global Styles */
+
+body {
+  background-color: var(--color-bg-base);
+  color: var(--color-text-base);
+  font-family: var(--font-sans), sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.5;
+  margin: 0;
+  padding: 0;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--color-primary-dark);
+}
+
+input, textarea, select, button {
+  font-family: inherit;
+}

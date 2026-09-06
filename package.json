@@ -8,12 +8,14 @@
     "server"
   ],
   "scripts": {
+    "dev": "concurrently \"npm run dev -w server\" \"npm run dev -w client\"",
     "lint": "eslint . --ext .js,.jsx",
     "format": "prettier --write \"**/*.{js,jsx,css,md,json}\"",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down"
   },
   "devDependencies": {
+    "concurrently": "^10.0.5",
     "eslint": "^9.39.5",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-import": "^2.32.0",

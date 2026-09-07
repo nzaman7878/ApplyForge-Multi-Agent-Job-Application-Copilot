@@ -1,6 +1,6 @@
 # ApplyForge — Multi-Agent Job Application Copilot
 
-*Paste a job description and your resume — a multi-agent pipeline tailors your application, checks ATS fit, and tracks the whole application lifecycle.*
+_Paste a job description and your resume — a multi-agent pipeline tailors your application, checks ATS fit, and tracks the whole application lifecycle._
 
 ## Overview
 
@@ -30,6 +30,7 @@ graph TD
 ## Setup
 
 ### Prerequisites
+
 - Node.js (v18 or higher)
 - Docker and Docker Compose (for local database)
 
@@ -41,18 +42,19 @@ Before starting the app, set up your `.env` files. You can copy the provided exa
 cp server/.env.example server/.env
 ```
 
-| Variable | Description | Default |
-| -------- | ----------- | ------- |
-| `PORT` | The port the Express server runs on | `5000` |
-| `NODE_ENV` | Environment mode (`development`, `production`) | `development` |
-| `MONGODB_URI` | Connection string for MongoDB (required later) | `mongodb://localhost:27017/applyforge` |
-| `JWT_SECRET` | Secret key for JWT access tokens | |
-| `ANTHROPIC_API_KEY`| API key for Claude/LangGraph | |
+| Variable            | Description                                    | Default                                |
+| ------------------- | ---------------------------------------------- | -------------------------------------- |
+| `PORT`              | The port the Express server runs on            | `5000`                                 |
+| `NODE_ENV`          | Environment mode (`development`, `production`) | `development`                          |
+| `MONGODB_URI`       | Connection string for MongoDB (required later) | `mongodb://localhost:27017/applyforge` |
+| `JWT_SECRET`        | Secret key for JWT access tokens               |                                        |
+| `ANTHROPIC_API_KEY` | API key for Claude/LangGraph                   |                                        |
 
 ### Running the App Locally
 
 **1. Install Dependencies**
 Install dependencies for the root, client, and server:
+
 ```bash
 npm install
 npm install -w client
@@ -61,12 +63,14 @@ npm install -w server
 
 **2. Start the Database**
 Use Docker Compose to spin up a local MongoDB instance:
+
 ```bash
 npm run docker:up
 ```
 
 **3. Run the Development Servers**
 Start both the React frontend and Express backend concurrently:
+
 ```bash
 npm run dev
 ```
@@ -75,4 +79,18 @@ The frontend will be available at `http://localhost:5173` and the backend API at
 
 ## API Reference
 
-(To be added)
+### Health Check
+
+| Method | Endpoint      | Access | Description                                                                                  |
+| ------ | ------------- | ------ | -------------------------------------------------------------------------------------------- |
+| `GET`  | `/api/health` | Public | Basic server health check returning `{ status: 'ok', message: 'ApplyForge API is running' }` |
+
+### Authentication Endpoints (`/api/auth`)
+
+| Method | Endpoint             | Access                       | Description                                                                                                                          |
+| ------ | -------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `POST` | `/api/auth/register` | Public                       | Register a new user with `name`, `email`, and `password`. Returns access token, refresh token, and sanitized user object.            |
+| `POST` | `/api/auth/login`    | Public (Rate-limited)        | Authenticate user with credentials. Rate limited to 5 requests per 15 minutes. Returns access token, refresh token, and user object. |
+| `GET`  | `/api/auth/me`       | Protected (`Bearer <token>`) | Retrieve current authenticated user profile without sensitive password hashes or tokens.                                             |
+| `POST` | `/api/auth/refresh`  | Public                       | Submit `refreshToken` to receive a newly issued `accessToken`.                                                                       |
+| `POST` | `/api/auth/logout`   | Protected / Token-based      | Invalidate active session by clearing the stored `refreshToken` in the database.                                                     |

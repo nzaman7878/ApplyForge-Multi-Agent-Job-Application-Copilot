@@ -1,5 +1,5 @@
 const User = require('../models/User');
-const { signToken, signRefreshToken, verifyRefreshToken } = require('../utils/jwt');
+const { signToken, verifyToken, signRefreshToken, verifyRefreshToken } = require('../utils/jwt');
 
 /**
  * Register a new user
@@ -205,9 +205,63 @@ const refresh = async (req, res) => {
   }
 };
 
+/**
+ * Logout user
+ * POST /api/auth/logout
+ * Clears refresh token in DB
+ */
+const logout = async (req, res) => {
+  try {
+    const refreshToken = (req.body && req.body.refreshToken) || req.headers['x-refresh-token'];
+    const authHeader = req.header('Authorization');
+
+    let user = req.user;
+
+    // If Authorization header is provided, attempt to authenticate
+    if (!user && authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.replace('Bearer ', '');
+      try {
+        const decoded = verifyToken(token);
+        user = await User.findById(decoded.id);
+      } catch (err) {
+        // Access token may have expired during logout
+      }
+    }
+
+    if (user) {
+      user.refreshToken = null;
+      await user.save();
+      return res.status(200).json({
+        message: 'Logged out successfully',
+      });
+    }
+
+    if (refreshToken) {
+      await User.findOneAndUpdate({ refreshToken }, { $set: { refreshToken: null } });
+
+      return res.status(200).json({
+        message: 'Logged out successfully',
+      });
+    }
+
+    return res.status(401).json({
+      error: 'Authentication failed',
+      code: 'TOKEN_MISSING',
+      message: 'Token or refresh token required to logout',
+    });
+  } catch (error) {
+    console.error('Logout error:', error);
+    return res.status(500).json({
+      error: 'Internal server error',
+      message: 'Failed to logout',
+    });
+  }
+};
+
 module.exports = {
   register,
   login,
   getMe,
   refresh,
+  logout,
 };

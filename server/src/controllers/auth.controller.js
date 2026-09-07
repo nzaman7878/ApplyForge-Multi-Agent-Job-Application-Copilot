@@ -1,5 +1,5 @@
 const User = require('../models/User');
-const { signToken } = require('../utils/jwt');
+const { signToken, signRefreshToken, verifyRefreshToken } = require('../utils/jwt');
 
 /**
  * Register a new user
@@ -27,12 +27,18 @@ const register = async (req, res) => {
 
     await user.save();
 
-    // Generate JWT token
+    // Generate JWT tokens
     const token = signToken(user._id);
+    const refreshToken = signRefreshToken(user._id);
+
+    user.refreshToken = refreshToken;
+    await user.save();
 
     // Return JWT and sanitized user object
     return res.status(201).json({
       token,
+      accessToken: token,
+      refreshToken,
       user: {
         id: user._id,
         name: user.name,
@@ -74,12 +80,18 @@ const login = async (req, res) => {
       });
     }
 
-    // Generate JWT token
+    // Generate JWT tokens
     const token = signToken(user._id);
+    const refreshToken = signRefreshToken(user._id);
+
+    user.refreshToken = refreshToken;
+    await user.save();
 
     // Return JWT and sanitized user object
     return res.status(200).json({
       token,
+      accessToken: token,
+      refreshToken,
       user: {
         id: user._id,
         name: user.name,
@@ -118,8 +130,9 @@ const getMe = async (req, res) => {
       userResponse.id = userResponse._id;
     }
 
-    // Ensure passwordHash is not present
+    // Ensure sensitive fields are omitted
     delete userResponse.passwordHash;
+    delete userResponse.refreshToken;
     delete userResponse.__v;
 
     return res.status(200).json({
@@ -135,8 +148,66 @@ const getMe = async (req, res) => {
   }
 };
 
+/**
+ * Refresh access token
+ * POST /api/auth/refresh
+ */
+const refresh = async (req, res) => {
+  try {
+    const refreshToken = (req.body && req.body.refreshToken) || req.headers['x-refresh-token'];
+
+    if (!refreshToken) {
+      return res.status(400).json({
+        error: 'Refresh token is required',
+        code: 'REFRESH_TOKEN_MISSING',
+      });
+    }
+
+    let decoded;
+    try {
+      decoded = verifyRefreshToken(refreshToken);
+    } catch (err) {
+      return res.status(401).json({
+        error: 'Invalid or expired refresh token',
+        code: 'REFRESH_TOKEN_INVALID',
+      });
+    }
+
+    const user = await User.findById(decoded.id);
+    if (!user) {
+      return res.status(401).json({
+        error: 'User not found',
+        code: 'USER_NOT_FOUND',
+      });
+    }
+
+    // Verify stored refresh token matches
+    if (user.refreshToken !== refreshToken) {
+      return res.status(401).json({
+        error: 'Invalid refresh token',
+        code: 'REFRESH_TOKEN_INVALID',
+      });
+    }
+
+    // Generate new access token
+    const accessToken = signToken(user._id);
+
+    return res.status(200).json({
+      accessToken,
+      token: accessToken,
+    });
+  } catch (error) {
+    console.error('Refresh token error:', error);
+    return res.status(500).json({
+      error: 'Internal server error',
+      message: 'Failed to refresh token',
+    });
+  }
+};
+
 module.exports = {
   register,
   login,
   getMe,
+  refresh,
 };

@@ -22,6 +22,10 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  refreshToken: {
+    type: String,
+    default: null,
+  },
 });
 
 // Pre-save hook: bcrypt hash on password change
@@ -54,10 +58,11 @@ userSchema.statics.findByCredentials = async function (email, password) {
   return user;
 };
 
-// Transform user object on serialization (strips passwordHash)
+// Transform user object on serialization (strips passwordHash and refreshToken)
 userSchema.methods.toJSON = function () {
   const user = this.toObject();
   delete user.passwordHash;
+  delete user.refreshToken;
   delete user.__v;
   return user;
 };

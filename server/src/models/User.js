@@ -54,6 +54,14 @@ userSchema.statics.findByCredentials = async function (email, password) {
   return user;
 };
 
+// Transform user object on serialization (strips passwordHash)
+userSchema.methods.toJSON = function () {
+  const user = this.toObject();
+  delete user.passwordHash;
+  delete user.__v;
+  return user;
+};
+
 const User = mongoose.model('User', userSchema);
 
 module.exports = User;

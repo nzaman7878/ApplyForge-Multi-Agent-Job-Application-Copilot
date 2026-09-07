@@ -96,7 +96,47 @@ const login = async (req, res) => {
   }
 };
 
+/**
+ * Get current user
+ * GET /api/auth/me (protected)
+ */
+const getMe = async (req, res) => {
+  try {
+    const user = req.user;
+
+    const userResponse = user.toJSON
+      ? user.toJSON()
+      : {
+          id: user._id,
+          _id: user._id,
+          name: user.name,
+          email: user.email,
+          createdAt: user.createdAt,
+        };
+
+    if (!userResponse.id && userResponse._id) {
+      userResponse.id = userResponse._id;
+    }
+
+    // Ensure passwordHash is not present
+    delete userResponse.passwordHash;
+    delete userResponse.__v;
+
+    return res.status(200).json({
+      ...userResponse,
+      user: userResponse,
+    });
+  } catch (error) {
+    console.error('Get current user error:', error);
+    return res.status(500).json({
+      error: 'Internal server error',
+      message: 'Failed to retrieve current user',
+    });
+  }
+};
+
 module.exports = {
   register,
   login,
+  getMe,
 };

@@ -1,10 +1,12 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import Navbar from '../components/layout/Navbar';
 
 export default function Apply() {
   return (
-    <div className="min-h-screen bg-slate-900 text-white p-8">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-slate-950 text-white">
+      <Navbar />
+      <main className="max-w-4xl mx-auto p-6 sm:p-8">
         <div className="flex items-center gap-2 mb-6 text-sm text-slate-400">
           <Link to="/dashboard" className="hover:text-white transition">
             Dashboard
@@ -41,7 +43,7 @@ export default function Apply() {
         >
           Run Multi-Agent Copilot
         </button>
-      </div>
+      </main>
     </div>
   );
 }

@@ -1,10 +1,12 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import Navbar from '../components/layout/Navbar';
 
 export default function Dashboard() {
   return (
-    <div className="min-h-screen bg-slate-900 text-white p-8">
-      <div className="max-w-5xl mx-auto">
+    <div className="min-h-screen bg-slate-950 text-white">
+      <Navbar />
+      <main className="max-w-5xl mx-auto p-6 sm:p-8">
         <header className="flex justify-between items-center pb-6 border-b border-slate-800 mb-8">
           <h1 className="text-3xl font-bold">Dashboard</h1>
           <div className="flex gap-3">
@@ -37,7 +39,7 @@ export default function Dashboard() {
             <p className="text-3xl font-bold">0</p>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

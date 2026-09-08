@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { PageLoader } from '../../components/ui/PageLoader';
 
 /**
  * Route guard for public/guest routes (e.g., /login, /register).
@@ -10,11 +11,7 @@ export const PublicRoute = ({ children, redirectTo = '/dashboard', restricted = 
   const { accessToken, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white">
-        <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-      </div>
-    );
+    return <PageLoader message="Loading..." />;
   }
 
   const token =

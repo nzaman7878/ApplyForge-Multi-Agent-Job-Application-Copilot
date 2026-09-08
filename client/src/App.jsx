@@ -1,12 +1,9 @@
 import React from 'react';
+import { RouterProvider } from 'react-router-dom';
+import router from './router';
 
 function App() {
-  return (
-    <div>
-      <h1>ApplyForge</h1>
-      <p>Multi-Agent Job Application Copilot</p>
-    </div>
-  );
+  return <RouterProvider router={router} />;
 }
 
 export default App;

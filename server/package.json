@@ -6,6 +6,7 @@
   "scripts": {
     "test": "node tests/auth-smoke.test.js",
     "test:auth": "node tests/auth-smoke.test.js",
+    "test:resume": "node tests/resume-model.test.js",
     "dev": "npx nodemon src/index.js"
   },
   "keywords": [],

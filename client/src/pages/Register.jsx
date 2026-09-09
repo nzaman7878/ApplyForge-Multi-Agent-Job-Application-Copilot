@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { registerSchema } from '../schemas/auth.schemas';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../hooks/useToast';
 import {
   Button,
   FormField,
@@ -17,6 +18,7 @@ import {
 export default function Register() {
   const [serverError, setServerError] = useState('');
   const { register: registerUser } = useAuth();
+  const toast = useToast();
   const navigate = useNavigate();
 
   const {
@@ -42,6 +44,7 @@ export default function Register() {
     try {
       setServerError('');
       await registerUser(data.name, data.email, data.password);
+      toast.success('Account created successfully! Welcome to ApplyForge.');
       navigate('/dashboard');
     } catch (err) {
       const message =
@@ -50,6 +53,7 @@ export default function Register() {
         err.message ||
         'Registration failed. Please try again.';
       setServerError(message);
+      toast.error(message);
     }
   };
 

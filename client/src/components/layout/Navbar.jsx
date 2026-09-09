@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../hooks/useToast';
 import { Button } from '../ui/Button';
 
 export default function Navbar() {
   const { user, isAuthenticated, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const toast = useToast();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
     await logout();
+    toast.success('Signed out successfully');
     setMobileMenuOpen(false);
     navigate('/login');
   };

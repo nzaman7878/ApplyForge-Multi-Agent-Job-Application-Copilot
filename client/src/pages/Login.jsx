@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { loginSchema } from '../schemas/auth.schemas';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../hooks/useToast';
 import {
   Button,
   FormField,
@@ -17,6 +18,7 @@ import {
 export default function Login() {
   const [serverError, setServerError] = useState('');
   const { login } = useAuth();
+  const toast = useToast();
   const navigate = useNavigate();
 
   const {
@@ -36,6 +38,7 @@ export default function Login() {
     try {
       setServerError('');
       await login(data.email, data.password);
+      toast.success('Signed in successfully!');
       navigate('/dashboard');
     } catch (err) {
       const message =
@@ -44,6 +47,7 @@ export default function Login() {
         err.message ||
         'Login failed. Please check your credentials.';
       setServerError(message);
+      toast.error(message);
     }
   };
 

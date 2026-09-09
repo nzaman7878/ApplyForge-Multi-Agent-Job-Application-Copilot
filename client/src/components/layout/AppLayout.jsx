@@ -2,6 +2,7 @@ import React from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import Navbar from './Navbar';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../hooks/useToast';
 
 /**
  * AppLayout component that wraps protected pages with the top Navbar,
@@ -11,10 +12,12 @@ import { useAuth } from '../../context/AuthContext';
  */
 export const AppLayout = ({ children }) => {
   const { user, logout } = useAuth();
+  const toast = useToast();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
     await logout();
+    toast.success('Signed out successfully');
     navigate('/login');
   };
 

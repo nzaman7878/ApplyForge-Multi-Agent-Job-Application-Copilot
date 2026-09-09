@@ -18,7 +18,7 @@ const register = [
     .notEmpty()
     .withMessage('Password is required')
     .isLength({ min: 8 })
-    .withMessage('Password must be at least 8 characters long')
+    .withMessage('Password must be at least 8 characters long'),
 ];
 
 const login = [
@@ -29,12 +29,10 @@ const login = [
     .isEmail()
     .withMessage('Must be a valid email address')
     .normalizeEmail(),
-  body('password')
-    .notEmpty()
-    .withMessage('Password is required')
+  body('password').notEmpty().withMessage('Password is required'),
 ];
 
 module.exports = {
   register,
-  login
+  login,
 };

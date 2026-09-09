@@ -16,14 +16,14 @@ const connectDB = async (retries = 5) => {
       console.error(`MongoDB connection error: ${err.message}`);
       retries -= 1;
       console.log(`Retries left: ${retries}`);
-      
+
       if (retries === 0) {
         console.error('Could not connect to MongoDB after multiple attempts. Exiting...');
         process.exit(1);
       }
-      
+
       // Wait for 5 seconds before retrying
-      await new Promise(res => setTimeout(res, 5000));
+      await new Promise((res) => setTimeout(res, 5000));
     }
   }
 };

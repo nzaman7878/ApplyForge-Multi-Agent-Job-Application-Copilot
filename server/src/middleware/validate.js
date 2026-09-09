@@ -16,14 +16,14 @@ const validate = (validations) => {
     }
 
     // Format errors nicely
-    const formattedErrors = errors.array().map(err => ({
+    const formattedErrors = errors.array().map((err) => ({
       field: err.path,
-      message: err.msg
+      message: err.msg,
     }));
 
     return res.status(400).json({
       error: 'Validation failed',
-      details: formattedErrors
+      details: formattedErrors,
     });
   };
 };

@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node tests/auth-smoke.test.js",
+    "test:auth": "node tests/auth-smoke.test.js",
     "dev": "npx nodemon src/index.js"
   },
   "keywords": [],
@@ -23,5 +24,9 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.9.4",
     "morgan": "^1.12.0"
+  },
+  "devDependencies": {
+    "mongodb-memory-server": "^11.2.0",
+    "supertest": "^7.2.2"
   }
 }

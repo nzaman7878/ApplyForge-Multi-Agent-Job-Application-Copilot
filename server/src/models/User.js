@@ -29,7 +29,7 @@ const userSchema = new mongoose.Schema({
 });
 
 // Pre-save hook: bcrypt hash on password change
-userSchema.pre('save', async function (next) {
+userSchema.pre('save', async function () {
   const user = this;
 
   // Only hash the password if it has been modified (or is new)
@@ -37,8 +37,6 @@ userSchema.pre('save', async function (next) {
     const salt = await bcrypt.genSalt(10);
     user.passwordHash = await bcrypt.hash(user.passwordHash, salt);
   }
-
-  next();
 });
 
 // Static method: findByCredentials

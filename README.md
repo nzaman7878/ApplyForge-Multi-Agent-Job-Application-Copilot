@@ -94,3 +94,47 @@ The frontend will be available at `http://localhost:5173` and the backend API at
 | `GET`  | `/api/auth/me`       | Protected (`Bearer <token>`) | Retrieve current authenticated user profile without sensitive password hashes or tokens.                                             |
 | `POST` | `/api/auth/refresh`  | Public                       | Submit `refreshToken` to receive a newly issued `accessToken`.                                                                       |
 | `POST` | `/api/auth/logout`   | Protected / Token-based      | Invalidate active session by clearing the stored `refreshToken` in the database.                                                     |
+
+## Frontend Authentication Flow
+
+The client application implements a complete, modern authentication system built with React 19, React Router, React Hook Form, Zod, and Tailwind CSS.
+
+### Architecture & Lifecycle
+
+1. **Route Protection & Guards**:
+   - **`PublicRoute`**: Wraps guest-only routes (`/login`, `/register`). If an authenticated user visits these routes, they are automatically redirected to `/dashboard`.
+   - **`PrivateRoute`**: Protects workspace routes (`/dashboard`, `/apply`, `/tracker`). If a visitor lacks a valid token, they are redirected to `/login`.
+   - **`PageLoader`**: Displays an ambient, brand-styled spinner screen during initial session verification.
+
+2. **State Management (`AuthContext`)**:
+   - Manages `user`, `accessToken`, and `loading` states.
+   - Exposes asynchronous actions: `login(email, password)`, `register(name, email, password)`, and `logout()`.
+   - Synchronizes token persistence in memory and `localStorage`.
+
+3. **HTTP Interceptors (`client/src/lib/axios.js`)**:
+   - **Request Interceptor**: Automatically attaches `Authorization: Bearer <token>` to all outgoing API requests.
+   - **Response Interceptor**: Automatically intercepts `401 Unauthorized` responses, queues incoming requests, exchanges the stored `refreshToken` for a new `accessToken` via `POST /api/auth/refresh`, and transparently replays the original requests without user disruption. If refresh fails, it clears credentials and triggers logout.
+
+4. **Notifications & Feedback (`useToast`)**:
+   - Custom hook wrapper around `react-hot-toast` with theme presets matching the dark palette (`slate-900`, `slate-800`, emerald success, and rose error states).
+
+5. **Layout Wrapper (`AppLayout`)**:
+   - Wraps protected pages with a responsive sticky top `Navbar` (brand monogram, links, user badge, mobile hamburger drawer) and a desktop navigation sidebar (Dashboard, Tailor Application, Tracker, Multi-Agent status indicator, and quick logout button).
+
+### Screenshots
+
+<!-- Screenshot Placeholders -->
+
+| Page          | Preview                                                                                                                                                                                                                                                                                    |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Login**     | _<!-- Screenshot Placeholder: docs/screenshots/login.png -->_<br>![ApplyForge Login](https://raw.githubusercontent.com/nzaman7878/ApplyForge-Multi-Agent-Job-Application-Copilot/main/docs/screenshots/login.png)<br>_Dark-mode login form with validation and error shake animation_      |
+| **Register**  | _<!-- Screenshot Placeholder: docs/screenshots/register.png -->_<br>![ApplyForge Registration](https://raw.githubusercontent.com/nzaman7878/ApplyForge-Multi-Agent-Job-Application-Copilot/main/docs/screenshots/register.png)<br>_Real-time password length indicator and Zod validation_ |
+| **Dashboard** | _<!-- Screenshot Placeholder: docs/screenshots/dashboard.png -->_<br>![ApplyForge Dashboard](https://raw.githubusercontent.com/nzaman7878/ApplyForge-Multi-Agent-Job-Application-Copilot/main/docs/screenshots/dashboard.png)<br>_AppLayout with sidebar, Navbar, and application metrics_ |
+
+### Running the End-to-End Smoke Test
+
+Run the full end-to-end authentication smoke test (registration → login → protected profile verification → token refresh → logout → token invalidation check):
+
+```bash
+npm run test:auth -w server
+```

@@ -24,9 +24,13 @@ app.use('/api/auth', authRoutes);
 const startServer = async () => {
   await connectDB();
 
-  app.listen(config.port, () => {
+  return app.listen(config.port, () => {
     console.log(`Server is running on port ${config.port} in ${config.env} mode`);
   });
 };
 
-startServer();
+if (require.main === module) {
+  startServer();
+}
+
+module.exports = { app, startServer };

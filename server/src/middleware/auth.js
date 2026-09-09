@@ -13,7 +13,7 @@ const auth = async (req, res, next) => {
     }
 
     const token = authHeader.replace('Bearer ', '');
-    
+
     let decoded;
     try {
       decoded = verifyToken(token);
@@ -42,7 +42,7 @@ const auth = async (req, res, next) => {
 
     req.user = user;
     req.token = token;
-    
+
     next();
   } catch (error) {
     console.error('Auth middleware error:', error);

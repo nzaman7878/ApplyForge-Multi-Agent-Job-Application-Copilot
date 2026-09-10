@@ -12,6 +12,7 @@
     "test:docx": "node tests/docx-parser.test.js",
     "test:section": "node tests/section-extractor.test.js",
     "test:upload-endpoint": "node tests/resume-upload-endpoint.test.js",
+    "test:get-resumes": "node tests/resume-get-endpoints.test.js",
     "dev": "npx nodemon src/index.js"
   },
   "keywords": [],

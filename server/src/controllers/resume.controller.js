@@ -1,4 +1,5 @@
 const fs = require('fs');
+const mongoose = require('mongoose');
 const Resume = require('../models/Resume');
 const parseDocument = require('../services/parsers');
 const { extractSections } = parseDocument;
@@ -101,6 +102,90 @@ const uploadResume = async (req, res) => {
   }
 };
 
+/**
+ * List all resumes for the authenticated user
+ * GET /api/resumes
+ * Protected route
+ */
+const getResumes = async (req, res) => {
+  try {
+    const resumes = await Resume.find({ userId: req.user._id })
+      .sort({ uploadedAt: -1 })
+      .select('originalFilename uploadedAt createdAt');
+
+    const formattedResumes = resumes.map((resume) => ({
+      id: resume._id.toString(),
+      name: resume.originalFilename,
+      originalFilename: resume.originalFilename,
+      uploadedAt: resume.uploadedAt,
+      createdAt: resume.createdAt,
+    }));
+
+    if (req.query.wrap === 'true' || req.query.format === 'object') {
+      return res.status(200).json({
+        resumes: formattedResumes,
+        count: formattedResumes.length,
+      });
+    }
+
+    return res.status(200).json(formattedResumes);
+  } catch (error) {
+    console.error('Get resumes error:', error);
+    return res.status(500).json({
+      error: 'Internal server error',
+      message: 'Failed to retrieve resumes',
+    });
+  }
+};
+
+/**
+ * Get single resume by ID with full parsed sections
+ * GET /api/resumes/:id
+ * Protected route
+ */
+const getResumeById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Validate ObjectId format
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        error: 'Invalid ID',
+        message: 'The provided resume ID is invalid',
+        code: 'INVALID_RESUME_ID',
+      });
+    }
+
+    const resume = await Resume.findOne({
+      _id: id,
+      userId: req.user._id,
+    });
+
+    if (!resume) {
+      return res.status(404).json({
+        error: 'Resume not found',
+        message: 'Resume not found or access denied',
+        code: 'RESUME_NOT_FOUND',
+      });
+    }
+
+    const resumeJson = resume.toJSON();
+
+    return res.status(200).json({
+      ...resumeJson,
+      resume: resumeJson,
+    });
+  } catch (error) {
+    console.error('Get resume by ID error:', error);
+    return res.status(500).json({
+      error: 'Internal server error',
+      message: 'Failed to retrieve resume details',
+    });
+  }
+};
+
 module.exports = {
   uploadResume,
+  getResumes,
+  getResumeById,
 };

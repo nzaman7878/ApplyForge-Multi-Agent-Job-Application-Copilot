@@ -12,4 +12,18 @@ const router = express.Router();
  */
 router.post('/', auth, upload.handleResumeUpload, resumeController.uploadResume);
 
+/**
+ * @route   GET /api/resumes
+ * @desc    List authenticated user's resumes
+ * @access  Protected
+ */
+router.get('/', auth, resumeController.getResumes);
+
+/**
+ * @route   GET /api/resumes/:id
+ * @desc    Get full resume by ID with parsed sections
+ * @access  Protected
+ */
+router.get('/:id', auth, resumeController.getResumeById);
+
 module.exports = router;

@@ -106,6 +106,17 @@ const resumeSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    filePath: {
+      type: String,
+      trim: true,
+    },
+    fileSize: {
+      type: Number,
+    },
+    mimeType: {
+      type: String,
+      trim: true,
+    },
   },
   {
     timestamps: true,

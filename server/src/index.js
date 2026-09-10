@@ -5,6 +5,7 @@ const morgan = require('morgan');
 const config = require('./config/env');
 const { connectDB } = require('./config/database');
 const authRoutes = require('./routes/auth.routes');
+const resumeRoutes = require('./routes/resume.routes');
 
 const app = express();
 
@@ -19,6 +20,7 @@ app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'ApplyForge API is running' });
 });
 app.use('/api/auth', authRoutes);
+app.use('/api/resumes', resumeRoutes);
 
 // Start Server
 const startServer = async () => {

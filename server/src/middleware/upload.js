@@ -63,13 +63,19 @@ const upload = multer({
 
 /**
  * Middleware factory for single file uploads with unified 400 error handling
- * @param {string} [fieldName='file']
+ * Supports a single field name or multiple acceptable field names (e.g., ['file', 'resume'])
+ * @param {string|string[]} [fieldName='file']
  */
 const handleUpload = (fieldName = 'file') => {
   return (req, res, next) => {
-    const singleUpload = upload.single(fieldName);
+    let uploader;
+    if (Array.isArray(fieldName)) {
+      uploader = upload.fields(fieldName.map((name) => ({ name, maxCount: 1 })));
+    } else {
+      uploader = upload.single(fieldName);
+    }
 
-    singleUpload(req, res, (err) => {
+    uploader(req, res, (err) => {
       if (err) {
         if (err.code === 'LIMIT_FILE_SIZE') {
           return res.status(400).json({
@@ -101,12 +107,23 @@ const handleUpload = (fieldName = 'file') => {
         });
       }
 
+      // If array of field names was passed, normalize req.file to the populated field
+      if (Array.isArray(fieldName) && req.files) {
+        for (const name of fieldName) {
+          if (req.files[name] && req.files[name][0]) {
+            req.file = req.files[name][0];
+            break;
+          }
+        }
+      }
+
       next();
     });
   };
 };
 
 upload.handleUpload = handleUpload;
+upload.handleResumeUpload = handleUpload(['file', 'resume']);
 upload.UPLOAD_DIR = UPLOAD_DIR;
 upload.MAX_FILE_SIZE = MAX_FILE_SIZE;
 upload.ALLOWED_MIME_TYPES = ALLOWED_MIME_TYPES;

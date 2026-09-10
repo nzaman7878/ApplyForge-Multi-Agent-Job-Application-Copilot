@@ -26,4 +26,11 @@ router.get('/', auth, resumeController.getResumes);
  */
 router.get('/:id', auth, resumeController.getResumeById);
 
+/**
+ * @route   DELETE /api/resumes/:id
+ * @desc    Delete resume by ID (with ownership check & disk cleanup)
+ * @access  Protected
+ */
+router.delete('/:id', auth, resumeController.deleteResume);
+
 module.exports = router;

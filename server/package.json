@@ -13,6 +13,7 @@
     "test:section": "node tests/section-extractor.test.js",
     "test:upload-endpoint": "node tests/resume-upload-endpoint.test.js",
     "test:get-resumes": "node tests/resume-get-endpoints.test.js",
+    "test:delete-resume": "node tests/resume-delete-endpoint.test.js",
     "dev": "npx nodemon src/index.js"
   },
   "keywords": [],

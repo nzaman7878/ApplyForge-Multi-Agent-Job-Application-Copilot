@@ -184,8 +184,71 @@ const getResumeById = async (req, res) => {
   }
 };
 
+/**
+ * Delete a resume by ID with ownership guard and disk cleanup
+ * DELETE /api/resumes/:id
+ * Protected route
+ */
+const deleteResume = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Validate ObjectId format
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        error: 'Invalid ID',
+        message: 'The provided resume ID is invalid',
+        code: 'INVALID_RESUME_ID',
+      });
+    }
+
+    // Ownership guard: find document belonging specifically to authenticated user
+    const resume = await Resume.findOne({
+      _id: id,
+      userId: req.user._id,
+    });
+
+    if (!resume) {
+      return res.status(404).json({
+        error: 'Resume not found',
+        message: 'Resume not found or access denied',
+        code: 'RESUME_NOT_FOUND',
+      });
+    }
+
+    // Delete file from disk if path exists
+    if (resume.filePath) {
+      try {
+        if (fs.existsSync(resume.filePath)) {
+          await fs.promises.unlink(resume.filePath);
+        }
+      } catch (fileErr) {
+        console.warn(
+          `Warning: Failed to delete resume file from disk (${resume.filePath}):`,
+          fileErr.message
+        );
+      }
+    }
+
+    // Delete MongoDB document
+    await Resume.deleteOne({ _id: resume._id });
+
+    return res.status(200).json({
+      message: 'Resume deleted successfully',
+      id: resume._id.toString(),
+    });
+  } catch (error) {
+    console.error('Delete resume error:', error);
+    return res.status(500).json({
+      error: 'Internal server error',
+      message: 'Failed to delete resume',
+    });
+  }
+};
+
 module.exports = {
   uploadResume,
   getResumes,
   getResumeById,
+  deleteResume,
 };

@@ -41,10 +41,13 @@ const parseDocument = async (buffer, mimeType, filename = '', options = {}) => {
   );
 };
 
+const extractSections = require('./sectionExtractor');
+
 parseDocument.parseDocument = parseDocument;
 parseDocument.extractTextFromPdf = extractTextFromPdf;
 parseDocument.extractTextFromDocx = extractTextFromDocx;
 parseDocument.cleanExtractedText = cleanExtractedText;
+parseDocument.extractSections = extractSections;
 parseDocument.SUPPORTED_MIME_TYPES = SUPPORTED_MIME_TYPES;
 
 module.exports = parseDocument;

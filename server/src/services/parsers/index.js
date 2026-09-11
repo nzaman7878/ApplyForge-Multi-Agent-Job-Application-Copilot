@@ -42,12 +42,14 @@ const parseDocument = async (buffer, mimeType, filename = '', options = {}) => {
 };
 
 const extractSections = require('./sectionExtractor');
+const parseJobDescription = require('./jdParser');
 
 parseDocument.parseDocument = parseDocument;
 parseDocument.extractTextFromPdf = extractTextFromPdf;
 parseDocument.extractTextFromDocx = extractTextFromDocx;
 parseDocument.cleanExtractedText = cleanExtractedText;
 parseDocument.extractSections = extractSections;
+parseDocument.parseJobDescription = parseJobDescription;
 parseDocument.SUPPORTED_MIME_TYPES = SUPPORTED_MIME_TYPES;
 
 module.exports = parseDocument;

@@ -15,6 +15,7 @@
     "test:get-resumes": "node tests/resume-get-endpoints.test.js",
     "test:delete-resume": "node tests/resume-delete-endpoint.test.js",
     "test:jd-model": "node tests/job-description-model.test.js",
+    "test:jd-parser": "node tests/jd-parser.test.js",
     "dev": "npx nodemon src/index.js"
   },
   "keywords": [],

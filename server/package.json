@@ -17,14 +17,18 @@
     "test:jd-model": "node tests/job-description-model.test.js",
     "test:jd-parser": "node tests/jd-parser.test.js",
     "test:create-jd": "node tests/jd-create-endpoint.test.js",
+    "test:jd-scraper": "node tests/jd-scraper.test.js",
     "dev": "npx nodemon src/index.js"
+
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "axios": "^1.20.0",
     "bcryptjs": "^3.0.3",
+    "cheerio": "^1.2.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",

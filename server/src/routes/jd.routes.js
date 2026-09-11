@@ -13,4 +13,12 @@ const router = express.Router();
  */
 router.post('/', auth, validate(jdValidators.createJd), jdController.createJobDescription);
 
+/**
+ * @route   POST /api/jds/from-url
+ * @desc    Scrape and create job description from URL (stretch preview stub)
+ * @access  Protected
+ */
+router.post('/from-url', auth, jdController.createJobDescriptionFromUrl);
+
 module.exports = router;
+

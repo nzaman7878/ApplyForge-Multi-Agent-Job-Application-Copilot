@@ -70,7 +70,30 @@ const createJobDescription = async (req, res) => {
   }
 };
 
+/**
+ * Stub endpoint for creating a job description from a URL (stretch preview)
+ * POST /api/jds/from-url
+ * Responds 501 Not Implemented
+ */
+const createJobDescriptionFromUrl = async (req, res) => {
+  const { url } = req.body || {};
+
+  return res.status(501).json({
+    error: 'Not Implemented',
+    message:
+      'URL-to-JD scraper ingestion is currently in preview development and not yet enabled.',
+    code: 'NOT_IMPLEMENTED',
+    details: {
+      feature: 'url-scraping',
+      status: 'preview_stub',
+      targetUrl: url || null,
+    },
+  });
+};
+
 module.exports = {
   createJobDescription,
   createJd: createJobDescription,
+  createJobDescriptionFromUrl,
 };
+

@@ -4,3 +4,5 @@ export { FormField } from './FormField';
 export { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from './Card';
 export { Spinner } from './Spinner';
 export { PageLoader } from './PageLoader';
+export { default as StepIndicator } from './StepIndicator';
+

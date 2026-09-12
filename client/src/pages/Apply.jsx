@@ -6,10 +6,29 @@ import api from '../lib/axios';
 import { useToast } from '../hooks/useToast';
 import AppLayout from '../components/layout/AppLayout';
 import { Button } from '../components/ui/Button';
+import { StepIndicator } from '../components/ui';
 import ResumeUploader from '../components/resume/ResumeUploader';
 import ResumePreview from '../components/resume/ResumePreview';
 import { JDPasteForm, JDRequirementsPanel } from '../components/jd';
 import { applyStep1Schema } from '../schemas/apply.schemas';
+
+const WIZARD_STEPS = [
+  {
+    id: 1,
+    label: 'Source Inputs',
+    description: 'Resume & Job Description',
+  },
+  {
+    id: 2,
+    label: 'Agent Pipeline',
+    description: 'Gap Analysis & Tailoring',
+  },
+  {
+    id: 3,
+    label: 'Review & Export',
+    description: 'Customized Application',
+  },
+];
 
 export default function Apply() {
   // Step tracking (Step 1 is active in this phase)
@@ -133,7 +152,7 @@ export default function Apply() {
         </div>
 
         {/* Wizard Header & Stepper */}
-        <div className="space-y-4">
+        <div className="space-y-6">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
@@ -151,80 +170,19 @@ export default function Apply() {
             </div>
           </div>
 
-          {/* Stepper Progress Bar */}
-          <div className="grid grid-cols-3 gap-3 pt-2">
-            {/* Step 1 */}
-            <div
-              className={`p-3.5 rounded-xl border transition-all ${
-                currentStep === 1
-                  ? 'bg-blue-950/40 border-blue-500/80 shadow-md shadow-blue-500/10'
-                  : 'bg-slate-900/60 border-slate-800'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <div
-                  className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                    isStep1Complete
-                      ? 'bg-emerald-500 text-slate-950'
-                      : currentStep === 1
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-slate-800 text-slate-400'
-                  }`}
-                >
-                  {isStep1Complete ? '✓' : '1'}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold text-white truncate">1. Source Inputs</p>
-                  <p className="text-[11px] text-slate-400 truncate hidden sm:block">
-                    Resume & Job Description
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Step 2 */}
-            <div
-              className={`p-3.5 rounded-xl border transition-all ${
-                currentStep === 2
-                  ? 'bg-blue-950/40 border-blue-500/80 shadow-md shadow-blue-500/10'
-                  : 'bg-slate-900/30 border-slate-800/60 opacity-70'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <div className="w-6 h-6 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center text-xs font-bold">
-                  2
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold text-slate-300 truncate">2. Agent Pipeline</p>
-                  <p className="text-[11px] text-slate-500 truncate hidden sm:block">
-                    Gap Analysis & Tailoring
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Step 3 */}
-            <div
-              className={`p-3.5 rounded-xl border transition-all ${
-                currentStep === 3
-                  ? 'bg-blue-950/40 border-blue-500/80 shadow-md shadow-blue-500/10'
-                  : 'bg-slate-900/30 border-slate-800/60 opacity-70'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <div className="w-6 h-6 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center text-xs font-bold">
-                  3
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold text-slate-300 truncate">3. Review & Export</p>
-                  <p className="text-[11px] text-slate-500 truncate hidden sm:block">
-                    Customized Resume & Pitch
-                  </p>
-                </div>
-              </div>
-            </div>
+          {/* Animated StepIndicator Component */}
+          <div className="bg-slate-900/60 border border-slate-800/90 rounded-2xl p-6 sm:p-7 shadow-lg backdrop-blur-sm">
+            <StepIndicator
+              steps={WIZARD_STEPS}
+              currentStep={currentStep}
+              completedSteps={isStep1Complete && currentStep > 1 ? [1] : []}
+              onStepClick={(stepId) => {
+                if (stepId === 1) setCurrentStep(1);
+              }}
+            />
           </div>
         </div>
+
 
         {/* Step 1 Main Content */}
         {currentStep === 1 ? (

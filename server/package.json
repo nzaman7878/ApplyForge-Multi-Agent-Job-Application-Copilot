@@ -22,6 +22,7 @@
     "test:llm": "node tests/llm-config.test.js",
     "test:agent-state": "node tests/agent-state.test.js",
     "test:parser-node": "node tests/parser-node.test.js",
+    "test:resume-tailoring": "node tests/resume-tailoring-node.test.js",
     "dev": "npx nodemon src/index.js"
   },
   "keywords": [],

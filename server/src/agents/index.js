@@ -4,6 +4,13 @@ const {
   formatStructuredResume,
   formatStructuredJD,
 } = require('./nodes/parserNode');
+const {
+  resumeTailoringNode,
+  TAILORING_SYSTEM_PROMPT,
+  buildTailoringPrompt,
+  parseTailoredBullets,
+  tailorBulletsHeuristic,
+} = require('./nodes/resumeTailoringNode');
 
 module.exports = {
   AgentState,
@@ -12,4 +19,9 @@ module.exports = {
   parserNode,
   formatStructuredResume,
   formatStructuredJD,
+  resumeTailoringNode,
+  TAILORING_SYSTEM_PROMPT,
+  buildTailoringPrompt,
+  parseTailoredBullets,
+  tailorBulletsHeuristic,
 };

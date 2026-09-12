@@ -104,7 +104,18 @@ The frontend will be available at `http://localhost:5173` and the backend API at
 | `GET`    | `/api/resumes/:id` | Protected (`Bearer <token>`) | Retrieve full resume document with complete `parsedSections` (Contact, Summary, Experience, etc.).       |
 | `DELETE` | `/api/resumes/:id` | Protected (`Bearer <token>`) | Delete resume with user ownership verification and associated file cleanup on disk.                      |
 
+### Job Description Endpoints (`/api/jds`)
+
+| Method   | Endpoint            | Access                       | Description                                                                                          |
+| -------- | ------------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `POST`   | `/api/jds`          | Protected (`Bearer <token>`) | Create and parse a new job description from pasted text (`company`, `roleTitle`, `rawText`).         |
+| `POST`   | `/api/jds/from-url` | Protected (`Bearer <token>`) | Scrape and ingest job description from target URL (stretch preview stub, responds `501`).           |
+| `GET`    | `/api/jds`          | Protected (`Bearer <token>`) | List all job descriptions for the authenticated user, sorted in reverse chronological order.         |
+| `GET`    | `/api/jds/:id`      | Protected (`Bearer <token>`) | Retrieve full job description document with complete `parsedRequirements` and original `rawText`.   |
+| `DELETE` | `/api/jds/:id`      | Protected (`Bearer <token>`) | Delete job description with user ownership verification.                                             |
+
 ## Resume Ingestion & Parsing Pipeline
+
 
 ApplyForge features a robust, heuristic document ingestion pipeline that transforms unstructured PDF and DOCX resumes into structured, schema-compliant career profiles ready for AI tailoring.
 
@@ -146,6 +157,67 @@ graph LR
 - **`ResumePreview`** (`client/src/components/resume/ResumePreview.jsx`):
   - Structured card layout rendering contact pills, professional summary, skill tags, work experience timeline with bullet points, education, and certifications.
   - Raw extracted text view with one-click copy to clipboard for transparency.
+
+## Job Description (JD) Ingestion & Parsing Pipeline
+
+ApplyForge provides an intelligent job description ingestion and parsing pipeline that processes pasted job listings or URLs, extracting essential job criteria, required skills, and qualification metrics through structured regex heuristics and keyword classification.
+
+### JD Ingestion Lifecycle
+
+```mermaid
+graph LR
+    A[Pasted Raw Text / Job URL] --> B{Source Type}
+    B -->|Paste| C[Text Normalizer: clean whitespace & sanitize text]
+    B -->|URL| D[JD Scraper: axios fetch & cheerio text extractor]
+    C --> E[JD Section Parser: structured regex & dictionary matcher]
+    D --> E
+    E --> F[Extracted Criteria: Required Skills, Experience, Qualifications, Nice-to-Have]
+    F --> G[(MongoDB Persistence: JobDescription Model)]
+```
+
+### Extracted JD Criteria & Heuristics
+
+- **Required Skills**: Core technical competencies, programming languages, platforms, and frameworks matched against a comprehensive technology dictionary.
+- **Experience Years**: Numeric year ranges, seniority levels (Junior, Mid-Level, Senior, Staff, Lead), and minimum required experience detected via regex heuristics.
+- **Qualifications**: Degrees (Bachelor's, Master's, PhD), certifications, and relevant academic or professional prerequisites.
+- **Nice-to-Have**: Preferred skills, bonus domain experience, and optional competencies separated from non-negotiable requirements.
+
+### JD UI Components
+
+- **`JDPasteForm`** (`client/src/components/jd/JDPasteForm.jsx`):
+  - Company name and role title inputs with clean dark-mode input fields.
+  - Large expandable textarea for job postings with real-time character count and paste actions.
+  - Quick example loader for rapid testing and interactive validation.
+- **`JDRequirementsPanel`** (`client/src/components/jd/JDRequirementsPanel.jsx`):
+  - Color-coded tag lists displaying extracted required skills, qualifications, experience level, and nice-to-have items.
+  - Summary metrics and expandable full text preview with one-click clipboard copy.
+
+## Application Tailoring Wizard Flow
+
+The multi-step Application Copilot wizard orchestrates user inputs, LLM multi-agent reasoning, and generated artifacts through centralized Redux state management.
+
+### Wizard Lifecycle Diagram
+
+```mermaid
+graph TD
+    Step1[Step 1: Input Selection<br>Choose Resume + Job Description] -->|Validate & Next| Step2[Step 2: Gap Analysis<br>Skills Audit & ATS Match Score]
+    Step2 -->|Run Agent| Step3[Step 3: Resume Tailoring<br>Keyword Alignment & Bullet Optimization]
+    Step3 -->|Run Agent| Step4[Step 4: Cover Letter<br>Targeted Value Proposition]
+    Step4 -->|Run Agent| Step5[Step 5: Outreach Message<br>Recruiter & Hiring Manager InMails]
+    Step5 --> Complete[Ready to Apply & Export Artifacts]
+```
+
+### Wizard Architecture & State Management
+
+1. **Redux Store Slice (`client/src/store/applySlice.js`)**:
+   - **Step Tracking**: `currentStep` (1 to 5) with sequential boundary navigation (`setCurrentStep`, `nextStep`, `prevStep`).
+   - **Document Selection**: `selectedResume` and `selectedJd` instances linked to persistent MongoDB documents.
+   - **Agent Outputs**: Central store holding `status` (`idle`, `loading`, `succeeded`, `failed`), `gapAnalysis`, `tailoredResume`, `coverLetter`, `outreachMessage`, and execution timestamps.
+   - **Typed Selectors**: Memoized selectors (`selectCurrentStep`, `selectIsStep1Ready`, `selectAgentOutputs`) ensuring optimized re-renders.
+
+2. **Visual Step Indicator (`client/src/components/ui/StepIndicator.jsx`)**:
+   - Interactive animated progress rail highlighting active, completed, and upcoming steps.
+   - Icon badges and numbered state transitions with accessible ARIA attributes.
 
 ## Frontend Authentication Flow
 
@@ -214,4 +286,20 @@ npm run test:get-resumes -w server
 
 # Resume delete endpoint with ownership guard (DELETE /api/resumes/:id)
 npm run test:delete-resume -w server
+
+# JobDescription model schema and validation
+npm run test:jd-model -w server
+
+# Job description section parser service
+npm run test:jd-parser -w server
+
+# Job description creation endpoint (POST /api/jds)
+npm run test:create-jd -w server
+
+# JD scraper service & URL ingestion endpoint (POST /api/jds/from-url)
+npm run test:jd-scraper -w server
+
+# JD list, detail, and delete endpoints (GET/DELETE /api/jds)
+npm run test:jd-crud -w server
 ```
+

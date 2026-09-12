@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useDispatch, useSelector } from 'react-redux';
 import api from '../lib/axios';
 import { useToast } from '../hooks/useToast';
 import AppLayout from '../components/layout/AppLayout';
@@ -11,6 +12,14 @@ import ResumeUploader from '../components/resume/ResumeUploader';
 import ResumePreview from '../components/resume/ResumePreview';
 import { JDPasteForm, JDRequirementsPanel } from '../components/jd';
 import { applyStep1Schema } from '../schemas/apply.schemas';
+import {
+  setCurrentStep,
+  setSelectedResume,
+  setSelectedJd,
+  selectCurrentStep,
+  selectSelectedResume,
+  selectSelectedJd,
+} from '../store/applySlice';
 
 const WIZARD_STEPS = [
   {
@@ -31,12 +40,12 @@ const WIZARD_STEPS = [
 ];
 
 export default function Apply() {
-  // Step tracking (Step 1 is active in this phase)
-  const [currentStep, setCurrentStep] = useState(1);
+  const dispatch = useDispatch();
 
-  // Selected entities for the application
-  const [selectedResume, setSelectedResume] = useState(null);
-  const [selectedJd, setSelectedJd] = useState(null);
+  // Wizard state from Redux store
+  const currentStep = useSelector(selectCurrentStep);
+  const selectedResume = useSelector(selectSelectedResume);
+  const selectedJd = useSelector(selectSelectedJd);
 
   // Saved JDs list state
   const [savedJds, setSavedJds] = useState([]);
@@ -57,14 +66,24 @@ export default function Apply() {
   } = useForm({
     resolver: zodResolver(applyStep1Schema),
     defaultValues: {
-      resumeId: '',
-      jobDescriptionId: '',
+      resumeId: selectedResume ? selectedResume.id || selectedResume._id : '',
+      jobDescriptionId: selectedJd ? selectedJd.id || selectedJd._id : '',
     },
     mode: 'onChange',
   });
 
   const watchedResumeId = watch('resumeId');
   const watchedJdId = watch('jobDescriptionId');
+
+  // Synchronize initial Redux selections with form state
+  useEffect(() => {
+    if (selectedResume) {
+      setValue('resumeId', selectedResume.id || selectedResume._id, { shouldValidate: true });
+    }
+    if (selectedJd) {
+      setValue('jobDescriptionId', selectedJd.id || selectedJd._id, { shouldValidate: true });
+    }
+  }, [selectedResume, selectedJd, setValue]);
 
   // Fetch saved JDs on mount
   useEffect(() => {
@@ -77,9 +96,9 @@ export default function Apply() {
         const list = Array.isArray(res.data) ? res.data : res.data.jds || [];
         if (isMounted) {
           setSavedJds(list);
-          // If JDs exist and none selected, optionally select latest
+          // If JDs exist and none selected in Redux, optionally select latest
           if (list.length > 0 && !selectedJd) {
-            setSelectedJd(list[0]);
+            dispatch(setSelectedJd(list[0]));
             setValue('jobDescriptionId', list[0].id || list[0]._id, { shouldValidate: true });
           }
         }
@@ -97,11 +116,11 @@ export default function Apply() {
     return () => {
       isMounted = false;
     };
-  }, [setValue]);
+  }, [dispatch, selectedJd, setValue]);
 
-  // Sync selected resume with RHF
+  // Sync selected resume with Redux & RHF
   const handleSelectResume = (resume) => {
-    setSelectedResume(resume);
+    dispatch(setSelectedResume(resume));
     if (resume) {
       const id = resume.id || resume._id;
       setValue('resumeId', id, { shouldValidate: true });
@@ -110,9 +129,9 @@ export default function Apply() {
     }
   };
 
-  // Sync selected JD with RHF
+  // Sync selected JD with Redux & RHF
   const handleSelectJd = (jd) => {
-    setSelectedJd(jd);
+    dispatch(setSelectedJd(jd));
     if (jd) {
       const id = jd.id || jd._id;
       setValue('jobDescriptionId', id, { shouldValidate: true });
@@ -133,9 +152,10 @@ export default function Apply() {
       'Step 1 inputs verified! Ready to initialize multi-agent tailoring pipeline.'
     );
 
-    // In future phases, advance to multi-agent copilot / Step 2
-    setCurrentStep(2);
+    // Advance to multi-agent copilot / Step 2
+    dispatch(setCurrentStep(2));
   };
+
 
   const isStep1Complete = !!watchedResumeId && !!watchedJdId;
 
@@ -177,9 +197,10 @@ export default function Apply() {
               currentStep={currentStep}
               completedSteps={isStep1Complete && currentStep > 1 ? [1] : []}
               onStepClick={(stepId) => {
-                if (stepId === 1) setCurrentStep(1);
+                if (stepId === 1) dispatch(setCurrentStep(1));
               }}
             />
+
           </div>
         </div>
 
@@ -465,10 +486,11 @@ export default function Apply() {
                 type="button"
                 variant="secondary"
                 size="md"
-                onClick={() => setCurrentStep(1)}
+                onClick={() => dispatch(setCurrentStep(1))}
               >
                 ← Back to Step 1 Inputs
               </Button>
+
             </div>
           </div>
         )}

@@ -12,6 +12,15 @@ const {
   tailorBulletsHeuristic,
 } = require('./resumeTailoringNode');
 
+const {
+  atsKeywordNode,
+  extractWeightedKeywords,
+  locateKeywordInResume,
+  generateSuggestion,
+  calculateOverallScore,
+  DEFAULT_KEYWORD_WEIGHTS,
+} = require('./atsKeywordNode');
+
 module.exports = {
   parserNode,
   formatStructuredResume,
@@ -21,4 +30,10 @@ module.exports = {
   buildTailoringPrompt,
   parseTailoredBullets,
   tailorBulletsHeuristic,
+  atsKeywordNode,
+  extractWeightedKeywords,
+  locateKeywordInResume,
+  generateSuggestion,
+  calculateOverallScore,
+  DEFAULT_KEYWORD_WEIGHTS,
 };

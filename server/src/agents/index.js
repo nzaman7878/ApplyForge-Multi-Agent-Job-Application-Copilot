@@ -11,6 +11,14 @@ const {
   parseTailoredBullets,
   tailorBulletsHeuristic,
 } = require('./nodes/resumeTailoringNode');
+const {
+  atsKeywordNode,
+  extractWeightedKeywords,
+  locateKeywordInResume,
+  generateSuggestion,
+  calculateOverallScore,
+  DEFAULT_KEYWORD_WEIGHTS,
+} = require('./nodes/atsKeywordNode');
 
 module.exports = {
   AgentState,
@@ -24,4 +32,10 @@ module.exports = {
   buildTailoringPrompt,
   parseTailoredBullets,
   tailorBulletsHeuristic,
+  atsKeywordNode,
+  extractWeightedKeywords,
+  locateKeywordInResume,
+  generateSuggestion,
+  calculateOverallScore,
+  DEFAULT_KEYWORD_WEIGHTS,
 };

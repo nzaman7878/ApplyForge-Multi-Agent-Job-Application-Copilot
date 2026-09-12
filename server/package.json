@@ -20,6 +20,7 @@
     "test:jd-scraper": "node tests/jd-scraper.test.js",
     "test:jd-crud": "node tests/jd-crud-endpoints.test.js",
     "test:llm": "node tests/llm-config.test.js",
+    "test:agent-state": "node tests/agent-state.test.js",
     "dev": "npx nodemon src/index.js"
   },
   "keywords": [],

@@ -20,5 +20,27 @@ router.post('/', auth, validate(jdValidators.createJd), jdController.createJobDe
  */
 router.post('/from-url', auth, jdController.createJobDescriptionFromUrl);
 
+/**
+ * @route   GET /api/jds
+ * @desc    List authenticated user's job descriptions
+ * @access  Protected
+ */
+router.get('/', auth, jdController.getJobDescriptions);
+
+/**
+ * @route   GET /api/jds/:id
+ * @desc    Get full job description by ID with parsed requirements
+ * @access  Protected
+ */
+router.get('/:id', auth, jdController.getJobDescriptionById);
+
+/**
+ * @route   DELETE /api/jds/:id
+ * @desc    Delete job description by ID (ownership protected)
+ * @access  Protected
+ */
+router.delete('/:id', auth, jdController.deleteJobDescription);
+
 module.exports = router;
+
 

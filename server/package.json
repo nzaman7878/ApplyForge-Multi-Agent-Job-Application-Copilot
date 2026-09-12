@@ -19,6 +19,7 @@
     "test:create-jd": "node tests/jd-create-endpoint.test.js",
     "test:jd-scraper": "node tests/jd-scraper.test.js",
     "test:jd-crud": "node tests/jd-crud-endpoints.test.js",
+    "test:llm": "node tests/llm-config.test.js",
     "dev": "npx nodemon src/index.js"
   },
   "keywords": [],
@@ -26,6 +27,9 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@langchain/core": "^1.2.11",
+    "@langchain/google-genai": "^2.3.2",
+    "@langchain/langgraph": "^1.4.15",
     "axios": "^1.20.0",
     "bcryptjs": "^3.0.3",
     "cheerio": "^1.2.0",

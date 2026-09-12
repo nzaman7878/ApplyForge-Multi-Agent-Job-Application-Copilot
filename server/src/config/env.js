@@ -14,9 +14,10 @@ const envVarsSchema = Joi.object({
   JWT_EXPIRES_IN: Joi.string().default('7d').description('JWT Expiry duration'),
   JWT_REFRESH_SECRET: Joi.string().description('JWT Refresh Secret Key'),
 
-  // AI Configuration (optional until Epic F)
-  ANTHROPIC_API_KEY: Joi.string().description('Anthropic API Key for LangChain/LangGraph'),
-  LLM_MODEL: Joi.string().default('claude-3-5-sonnet-20240620').description('Default LLM Model'),
+  // AI Configuration (Epic F - Gemini)
+  GEMINI_API_KEY: Joi.string().allow('').description('Google Gemini API Key for LangChain/LangGraph'),
+  ANTHROPIC_API_KEY: Joi.string().allow('').description('Anthropic API Key for legacy/optional support'),
+  LLM_MODEL: Joi.string().default('gemini-2.5-flash').description('Default LLM Model'),
   LLM_TEMPERATURE: Joi.number().default(0.7).description('LLM Temperature setting'),
 }).unknown();
 
@@ -40,6 +41,7 @@ module.exports = {
     refreshSecret: envVars.JWT_REFRESH_SECRET,
   },
   ai: {
+    geminiApiKey: envVars.GEMINI_API_KEY,
     anthropicApiKey: envVars.ANTHROPIC_API_KEY,
     model: envVars.LLM_MODEL,
     temperature: envVars.LLM_TEMPERATURE,

@@ -7,6 +7,7 @@ const { connectDB } = require('./config/database');
 const authRoutes = require('./routes/auth.routes');
 const resumeRoutes = require('./routes/resume.routes');
 const jdRoutes = require('./routes/jd.routes');
+const pipelineRoutes = require('./routes/pipeline.routes');
 
 const app = express();
 
@@ -23,6 +24,7 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/resumes', resumeRoutes);
 app.use('/api/jds', jdRoutes);
+app.use('/api/pipeline', pipelineRoutes);
 
 // Start Server
 const startServer = async () => {

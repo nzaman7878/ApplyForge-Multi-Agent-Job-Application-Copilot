@@ -283,12 +283,13 @@ export default function BulletsEditor({ bullets = [], onChange, className = '' }
           </div>
 
           {/* Batch Quick Controls */}
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2" role="toolbar" aria-label="Bulk bullet actions">
             <Button
               type="button"
               variant="secondary"
               size="sm"
               onClick={handleAcceptAll}
+              aria-label={`Accept all ${totalCount} tailored bullets`}
               className="border-emerald-500/40 text-emerald-300 hover:bg-emerald-950/40"
             >
               ✓ Accept All ({totalCount})
@@ -298,6 +299,7 @@ export default function BulletsEditor({ bullets = [], onChange, className = '' }
               variant="secondary"
               size="sm"
               onClick={handleRejectAll}
+              aria-label="Revert all bullets to original resume text"
               className="text-slate-400 hover:text-slate-200"
             >
               Revert All to Original
@@ -307,6 +309,7 @@ export default function BulletsEditor({ bullets = [], onChange, className = '' }
               variant="secondary"
               size="sm"
               onClick={handleCopyAll}
+              aria-label="Copy all bullets to clipboard"
             >
               {copySuccess ? '✓ Copied!' : '📋 Copy Bullets'}
             </Button>
@@ -316,25 +319,25 @@ export default function BulletsEditor({ bullets = [], onChange, className = '' }
         {/* Breakdown Badges & Filter Bar */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-800">
           {/* Quick Stat Chips */}
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 font-semibold">
+          <div className="flex flex-wrap items-center gap-2 text-xs" role="region" aria-label="Bullet point status counts">
+            <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 font-semibold" aria-label={`${acceptedCount} bullets accepted`}>
               {acceptedCount} Accepted
             </span>
-            <span className="px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 font-semibold">
+            <span className="px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 font-semibold" aria-label={`${editedCount} bullets custom edited`}>
               {editedCount} Custom Edited
             </span>
-            <span className="px-2.5 py-1 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 font-semibold">
+            <span className="px-2.5 py-1 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 font-semibold" aria-label={`${rejectedCount} bullets rejected`}>
               {rejectedCount} Rejected
             </span>
             {pendingCount > 0 && (
-              <span className="px-2.5 py-1 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-300 font-semibold">
+              <span className="px-2.5 py-1 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-300 font-semibold" aria-label={`${pendingCount} bullets pending review`}>
                 {pendingCount} Pending
               </span>
             )}
           </div>
 
           {/* Filter Status Selector */}
-          <div className="flex items-center gap-1 p-1 bg-slate-950 rounded-xl border border-slate-800 text-xs">
+          <div className="flex items-center gap-1 p-1 bg-slate-950 rounded-xl border border-slate-800 text-xs" role="group" aria-label="Filter bullets by status">
             {[
               { id: 'all', label: `All (${totalCount})` },
               { id: 'accepted', label: `Accepted (${acceptedCount})` },
@@ -345,7 +348,9 @@ export default function BulletsEditor({ bullets = [], onChange, className = '' }
                 key={tab.id}
                 type="button"
                 onClick={() => setFilterStatus(tab.id)}
-                className={`px-2.5 py-1 font-semibold rounded-lg transition cursor-pointer ${
+                aria-pressed={filterStatus === tab.id}
+                aria-label={`Filter bullets: ${tab.label}`}
+                className={`px-2.5 py-1 font-semibold rounded-lg transition cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-500 ${
                   filterStatus === tab.id
                     ? 'bg-blue-600 text-white shadow-sm'
                     : 'text-slate-400 hover:text-white hover:bg-slate-900'
@@ -389,19 +394,20 @@ export default function BulletsEditor({ bullets = [], onChange, className = '' }
                   </div>
 
                   {/* Per-Bullet Action Buttons */}
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2" role="group" aria-label={`Actions for bullet #${index + 1}`}>
                     {/* Accept Button */}
                     <button
                       type="button"
                       onClick={() => handleAccept(index)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                      aria-label={`Accept AI tailored optimization for bullet #${index + 1}`}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer focus:outline-none focus:ring-1 focus:ring-emerald-400 ${
                         isAccepted
                           ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/25'
                           : 'bg-emerald-950/40 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/40'
                       }`}
                       title="Accept AI tailored optimization"
                     >
-                      <span>✓</span>
+                      <span aria-hidden="true">✓</span>
                       <span>{isAccepted ? 'Accepted' : 'Accept AI'}</span>
                     </button>
 
@@ -410,14 +416,15 @@ export default function BulletsEditor({ bullets = [], onChange, className = '' }
                       <button
                         type="button"
                         onClick={() => handleStartEdit(index)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer ${
+                        aria-label={`Edit bullet #${index + 1} inline`}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer focus:outline-none focus:ring-1 focus:ring-amber-400 ${
                           isEdited
                             ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
                             : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
                         }`}
                         title="Click to edit bullet inline"
                       >
-                        <span>✎</span>
+                        <span aria-hidden="true">✎</span>
                         <span>{isEdited ? 'Edit Again' : 'Edit'}</span>
                       </button>
                     )}
@@ -426,14 +433,15 @@ export default function BulletsEditor({ bullets = [], onChange, className = '' }
                     <button
                       type="button"
                       onClick={() => handleReject(index)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer ${
+                      aria-label={`Reject AI version and keep original bullet #${index + 1}`}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer focus:outline-none focus:ring-1 focus:ring-rose-400 ${
                         isRejected
                           ? 'bg-rose-600 text-white shadow-md shadow-rose-600/25'
                           : 'bg-slate-900 hover:bg-rose-950/60 text-slate-400 hover:text-rose-300 border border-slate-800 hover:border-rose-700/50'
                       }`}
                       title="Reject AI version and keep original bullet"
                     >
-                      <span>✕</span>
+                      <span aria-hidden="true">✕</span>
                       <span>{isRejected ? 'Using Original' : 'Reject'}</span>
                     </button>
                   </div>
@@ -447,7 +455,7 @@ export default function BulletsEditor({ bullets = [], onChange, className = '' }
                   <div className="p-4 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-500" aria-hidden="true" />
                         Original Source Bullet
                       </span>
                       {isRejected && (
@@ -485,13 +493,13 @@ export default function BulletsEditor({ bullets = [], onChange, className = '' }
                   >
                     <div className="flex items-center justify-between">
                       <span className="text-[11px] font-bold uppercase tracking-wider text-blue-400 flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-400" aria-hidden="true" />
                         {isEdited ? 'Custom Tailored Bullet' : 'AI Tailored Bullet'}
                       </span>
 
                       {!item.isEditing && (
                         <span className="text-[10px] text-slate-500 italic hidden sm:inline">
-                          Click text below to edit
+                          Click or press Enter to edit
                         </span>
                       )}
                     </div>
@@ -503,12 +511,13 @@ export default function BulletsEditor({ bullets = [], onChange, className = '' }
                           rows={3}
                           value={item.draftText}
                           onChange={(e) => handleDraftChange(index, e.target.value)}
+                          aria-label={`Edit tailored bullet text for achievement #${index + 1}`}
                           className="w-full p-3 text-xs bg-slate-900 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 leading-relaxed font-sans"
                           placeholder="Edit your tailored achievement bullet..."
                           autoFocus
                         />
                         <div className="flex items-center justify-between">
-                          <span className="text-[10px] text-slate-500">
+                          <span className="text-[10px] text-slate-500" aria-live="polite">
                             {item.draftText.length} characters • {item.draftText.trim().split(/\s+/).filter(Boolean).length} words
                           </span>
 
@@ -516,6 +525,7 @@ export default function BulletsEditor({ bullets = [], onChange, className = '' }
                             <button
                               type="button"
                               onClick={() => handleCancelEdit(index)}
+                              aria-label={`Cancel editing bullet #${index + 1}`}
                               className="px-2.5 py-1 text-xs text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition cursor-pointer"
                             >
                               Cancel
@@ -526,6 +536,7 @@ export default function BulletsEditor({ bullets = [], onChange, className = '' }
                               size="sm"
                               onClick={() => handleSaveEdit(index)}
                               disabled={!item.draftText.trim()}
+                              aria-label={`Save edited bullet #${index + 1}`}
                             >
                               Save Bullet
                             </Button>
@@ -534,8 +545,17 @@ export default function BulletsEditor({ bullets = [], onChange, className = '' }
                       </div>
                     ) : (
                       <div
+                        role="button"
+                        tabIndex={0}
                         onClick={() => handleStartEdit(index)}
-                        className="group/text cursor-pointer rounded-xl p-1.5 -m-1.5 hover:bg-slate-800/40 transition"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            handleStartEdit(index);
+                          }
+                        }}
+                        aria-label={`Tailored achievement #${index + 1}. Press Enter to edit.`}
+                        className="group/text cursor-pointer rounded-xl p-1.5 -m-1.5 hover:bg-slate-800/40 transition focus:outline-none focus:ring-1 focus:ring-blue-400"
                         title="Click to edit inline"
                       >
                         <p

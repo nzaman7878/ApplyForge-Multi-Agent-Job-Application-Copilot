@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Button } from '../ui/Button';
 import api from '../../lib/axios';
 import { useToast } from '../../hooks/useToast';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 import {
   setCoverLetter,
   setAgentOutputs,
@@ -139,8 +140,13 @@ export default function CoverLetterEditor({
     }
   };
 
+  // Focus trap for regeneration modal
+  const regenModalRef = useFocusTrap(showRegenModal, {
+    onEscape: () => setShowRegenModal(false),
+  });
+
   // Trigger agent pipeline re-prompting with user notes
-  const handleRegenerate = async () => {
+  const handleRegenerate = useCallback(async () => {
     if (!activeRunId) {
       // Offline fallback: prepend user notes or enhance locally
       toast.error('No active pipeline run found to re-prompt. You can edit directly below.');
@@ -186,7 +192,7 @@ export default function CoverLetterEditor({
       setIsRegenerating(false);
       setUserNotes('');
     }
-  };
+  }, [activeRunId, userNotes, subject, body, keyThemes, toast, dispatch]);
 
   return (
     <div className={`space-y-6 ${className}`}>
@@ -195,7 +201,7 @@ export default function CoverLetterEditor({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/30">
-              <span className="w-2 h-2 rounded-full bg-blue-400" />
+              <span className="w-2 h-2 rounded-full bg-blue-400" aria-hidden="true" />
               <span>Cover Letter Synthesis Agent</span>
             </div>
             <h3 className="text-xl font-bold text-white tracking-tight">
@@ -207,12 +213,15 @@ export default function CoverLetterEditor({
           </div>
 
           {/* Action Buttons */}
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2" role="toolbar" aria-label="Cover letter actions">
             <Button
               type="button"
               variant="secondary"
               size="sm"
               onClick={() => setShowFormattingGuide(!showFormattingGuide)}
+              aria-expanded={showFormattingGuide}
+              aria-controls="formatting-guide-panel"
+              aria-label={showFormattingGuide ? 'Hide formatting guide' : 'Show formatting guide hints'}
               className="text-slate-300 hover:text-white"
             >
               {showFormattingGuide ? 'Hide Format Guide' : '💡 Formatting Guide'}
@@ -224,6 +233,7 @@ export default function CoverLetterEditor({
               size="sm"
               onClick={() => setShowRegenModal(true)}
               disabled={isRegenerating}
+              aria-label="Regenerate cover letter with custom AI instructions"
               className="border-blue-500/40 text-blue-300 hover:bg-blue-950/40"
             >
               {isRegenerating ? 'Regenerating...' : '✨ Regenerate with AI'}
@@ -234,6 +244,7 @@ export default function CoverLetterEditor({
               variant="secondary"
               size="sm"
               onClick={handleCopy}
+              aria-label="Copy full cover letter text to clipboard"
             >
               {isCopied ? '✓ Copied!' : '📋 Copy Text'}
             </Button>
@@ -243,6 +254,7 @@ export default function CoverLetterEditor({
               variant="secondary"
               size="sm"
               onClick={handleDownload}
+              aria-label="Download cover letter as plain text file"
             >
               ⬇ Download .txt
             </Button>
@@ -285,10 +297,16 @@ export default function CoverLetterEditor({
 
       {/* Formatting Guide Collapsible Card */}
       {showFormattingGuide && (
-        <div className="p-5 rounded-3xl bg-slate-900/60 border border-blue-500/30 text-xs space-y-3 animate-fadeIn">
+        <div
+          id="formatting-guide-panel"
+          role="region"
+          aria-label="Modern cover letter structure and formatting hints"
+          className="p-5 rounded-3xl bg-slate-900/60 border border-blue-500/30 text-xs space-y-3 animate-fadeIn"
+        >
           <div className="flex items-center justify-between border-b border-slate-800 pb-2">
             <h4 className="font-bold text-white flex items-center gap-2">
-              <span>📐 Modern Cover Letter Structure & Formatting Hints</span>
+              <span aria-hidden="true">📐</span>
+              <span>Modern Cover Letter Structure & Formatting Hints</span>
             </h4>
             <span className="text-[10px] text-slate-400">Standard 4-Paragraph Formula</span>
           </div>
@@ -326,14 +344,16 @@ export default function CoverLetterEditor({
       <div className="p-6 sm:p-7 rounded-3xl bg-slate-900/70 border border-slate-800 shadow-2xl space-y-4">
         {/* Subject Line Input */}
         <div className="space-y-1.5">
-          <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400">
+          <label htmlFor="cover-letter-subject-input" className="block text-[11px] font-bold uppercase tracking-wider text-slate-400">
             Email Subject Line
           </label>
           <input
+            id="cover-letter-subject-input"
             type="text"
             value={subject}
             onChange={(e) => handleSubjectChange(e.target.value)}
             placeholder="e.g. Senior Full-Stack Engineer Application - Alex Dev"
+            aria-label="Email Subject Line"
             className="w-full px-4 py-2.5 bg-slate-950/80 border border-slate-800 rounded-2xl text-sm font-semibold text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition shadow-inner"
           />
         </div>
@@ -341,7 +361,7 @@ export default function CoverLetterEditor({
         {/* Cover Letter Body Area */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400">
+            <label htmlFor="cover-letter-body-textarea" className="block text-[11px] font-bold uppercase tracking-wider text-slate-400">
               Cover Letter Body
             </label>
             <span className="text-[10px] text-slate-500">
@@ -351,10 +371,12 @@ export default function CoverLetterEditor({
 
           <div className="relative rounded-2xl overflow-hidden border border-slate-800 focus-within:border-blue-500 transition shadow-inner bg-slate-950/90">
             <textarea
+              id="cover-letter-body-textarea"
               rows={18}
               value={body}
               onChange={(e) => handleBodyChange(e.target.value)}
               placeholder="Dear Hiring Team,&#10;&#10;Write your targeted cover letter narrative here..."
+              aria-label="Cover letter body text"
               className="w-full p-5 text-sm sm:text-base font-serif sm:font-sans bg-transparent text-slate-100 placeholder-slate-600 focus:outline-none leading-relaxed resize-y selection:bg-blue-600 selection:text-white"
             />
           </div>
@@ -364,17 +386,25 @@ export default function CoverLetterEditor({
       {/* Modal: Regenerate with Custom Directives */}
       {showRegenModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
-          <div className="relative w-full max-w-lg p-6 sm:p-7 rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl space-y-4">
+          <div
+            ref={regenModalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="regen-modal-title"
+            aria-describedby="regen-modal-description"
+            className="relative w-full max-w-lg p-6 sm:p-7 rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl space-y-4 focus:outline-none"
+            tabIndex={-1}
+          >
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-blue-600/15 border border-blue-500/30 text-blue-400 flex items-center justify-center font-bold">
+                <div className="w-8 h-8 rounded-xl bg-blue-600/15 border border-blue-500/30 text-blue-400 flex items-center justify-center font-bold" aria-hidden="true">
                   ✨
                 </div>
                 <div>
-                  <h4 className="text-base font-bold text-white">
+                  <h4 id="regen-modal-title" className="text-base font-bold text-white">
                     Regenerate Cover Letter
                   </h4>
-                  <p className="text-xs text-slate-400">
+                  <p id="regen-modal-description" className="text-xs text-slate-400">
                     Re-prompt the agent with specific guidance or instructions
                   </p>
                 </div>
@@ -382,21 +412,25 @@ export default function CoverLetterEditor({
               <button
                 type="button"
                 onClick={() => setShowRegenModal(false)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg"
+                aria-label="Close dialog (Escape)"
+                title="Close dialog (Escape)"
+                className="text-slate-400 hover:text-white p-1 rounded-lg transition"
               >
                 ✕
               </button>
             </div>
 
             <div className="space-y-2">
-              <label className="block text-xs font-semibold text-slate-300">
+              <label htmlFor="regen-instructions-input" className="block text-xs font-semibold text-slate-300">
                 Custom Instructions or Tone Directives:
               </label>
               <textarea
+                id="regen-instructions-input"
                 rows={4}
                 value={userNotes}
                 onChange={(e) => setUserNotes(e.target.value)}
                 placeholder="e.g. Emphasize my experience leading distributed teams, make the tone more conversational, highlight my recent GraphQL microservice project..."
+                aria-label="Custom instructions or tone directives"
                 className="w-full p-3.5 text-xs bg-slate-950 border border-slate-800 rounded-2xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 leading-relaxed font-sans"
               />
               <p className="text-[11px] text-slate-500">
@@ -408,7 +442,8 @@ export default function CoverLetterEditor({
               <button
                 type="button"
                 onClick={() => setShowRegenModal(false)}
-                className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white transition"
+                aria-label="Cancel regeneration (Escape)"
+                className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white transition cursor-pointer"
               >
                 Cancel
               </button>
@@ -417,6 +452,7 @@ export default function CoverLetterEditor({
                 variant="primary"
                 size="md"
                 onClick={handleRegenerate}
+                aria-label="Run AI regeneration"
                 className="bg-blue-600 hover:bg-blue-500 text-white font-bold"
               >
                 Run AI Regeneration

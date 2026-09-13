@@ -40,13 +40,18 @@ function ScoreProgressRing({ score = 0, size = 120, strokeWidth = 10 }) {
   const { stroke, text, label } = getScoreColor(normalizedScore);
 
   return (
-    <div className="flex flex-col items-center justify-center relative">
+    <div
+      className="flex flex-col items-center justify-center relative"
+      role="img"
+      aria-label={`ATS Match Score: ${normalizedScore} percent, evaluated as ${label}`}
+    >
       <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
         <svg
           className="transform -rotate-90"
           width={size}
           height={size}
           viewBox={`0 0 ${size} ${size}`}
+          aria-hidden="true"
         >
           {/* Background circle track */}
           <circle
@@ -247,9 +252,9 @@ export default function ATSReport({ atsReport, className = '' }) {
       </div>
 
       {/* Filter & Search Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-2 bg-slate-950/60 border border-slate-800/90 rounded-2xl">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-2 bg-slate-950/60 border border-slate-800/90 rounded-2xl" role="search" aria-label="ATS keyword search and filters">
         {/* Importance Filter Tabs */}
-        <div className="flex items-center gap-1 w-full sm:w-auto">
+        <div className="flex items-center gap-1 w-full sm:w-auto" role="group" aria-label="Filter keywords by importance">
           {[
             { id: 'all', label: 'All Keywords' },
             { id: 'required', label: 'Required' },
@@ -260,7 +265,9 @@ export default function ATSReport({ atsReport, className = '' }) {
               key={tab.id}
               type="button"
               onClick={() => setFilterImportance(tab.id)}
-              className={`flex-1 sm:flex-none px-3 py-1.5 text-xs font-semibold rounded-xl transition cursor-pointer ${
+              aria-pressed={filterImportance === tab.id}
+              aria-label={`Filter by ${tab.label}`}
+              className={`flex-1 sm:flex-none px-3 py-1.5 text-xs font-semibold rounded-xl transition cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-500 ${
                 filterImportance === tab.id
                   ? 'bg-blue-600 text-white shadow-sm'
                   : 'text-slate-400 hover:text-white hover:bg-slate-900'
@@ -278,6 +285,7 @@ export default function ATSReport({ atsReport, className = '' }) {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search keywords..."
+            aria-label="Search keywords by text"
             className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-900 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition"
           />
           <svg
@@ -285,6 +293,7 @@ export default function ATSReport({ atsReport, className = '' }) {
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
+            aria-hidden="true"
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
@@ -292,6 +301,7 @@ export default function ATSReport({ atsReport, className = '' }) {
             <button
               type="button"
               onClick={() => setSearchQuery('')}
+              aria-label="Clear keyword search"
               className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 text-xs"
             >
               ✕
@@ -439,7 +449,9 @@ export default function ATSReport({ atsReport, className = '' }) {
                         <button
                           type="button"
                           onClick={() => toggleSuggestion(idx)}
-                          className="text-[10px] text-rose-300 hover:text-white px-2 py-0.5 rounded bg-rose-900/40 hover:bg-rose-900/60 border border-rose-700/50 transition shrink-0 cursor-pointer"
+                          aria-expanded={isExpanded}
+                          aria-label={`${isExpanded ? 'Hide' : 'Show'} action tip for keyword ${item.keyword}`}
+                          className="text-[10px] text-rose-300 hover:text-white px-2 py-0.5 rounded bg-rose-900/40 hover:bg-rose-900/60 border border-rose-700/50 transition shrink-0 cursor-pointer focus:outline-none focus:ring-1 focus:ring-rose-400"
                         >
                           {isExpanded ? 'Hide Tip' : 'Action Tip'}
                         </button>

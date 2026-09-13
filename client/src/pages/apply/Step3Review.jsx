@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import api from '../../lib/axios';
 import { useToast } from '../../hooks/useToast';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { Button, ErrorBoundary, ReviewSkeleton } from '../../components/ui';
 import {
   BulletsEditor,
@@ -84,8 +85,13 @@ export default function Step3Review({ onApprove, onBack, className = '' }) {
   const fitScoreVal = fitScoreData?.score;
   const hasCoverLetter = Boolean(coverLetterData?.body);
 
+  // Focus trap for Request Edits modal
+  const editModalRef = useFocusTrap(showEditModal, {
+    onEscape: () => setShowEditModal(false),
+  });
+
   // Handle pipeline approval (resumes LangGraph to 'save' node and redirects to Application detail)
-  const handleApproveApplication = async () => {
+  const handleApproveApplication = useCallback(async () => {
     if (!runId) {
       setIsApproved(true);
       toast.success('Application marked as approved and finalized!');
@@ -127,10 +133,10 @@ export default function Step3Review({ onApprove, onBack, className = '' }) {
     } finally {
       setIsApproving(false);
     }
-  };
+  }, [runId, onApprove, navigate, toast, dispatch]);
 
   // Handle Request Edits submission (POST /api/pipeline/:runId/edit)
-  const handleRequestEdits = async (e) => {
+  const handleRequestEdits = useCallback(async (e) => {
     if (e) e.preventDefault();
     if (!editNotes.trim()) {
       toast.error('Please enter notes or guidance for the AI agents');
@@ -179,6 +185,61 @@ export default function Step3Review({ onApprove, onBack, className = '' }) {
       toast.error(errMsg);
     } finally {
       setIsSubmittingEdits(false);
+    }
+  }, [editNotes, runId, agentOutputs, toast, dispatch]);
+
+  // Global Keyboard Shortcuts
+  // Ctrl+Enter / Cmd+Enter: Approve application (or submit edit modal if open)
+  // Escape: Close edit modal
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Ctrl+Enter or Cmd+Enter
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        if (showEditModal) {
+          e.preventDefault();
+          if (editNotes.trim() && !isSubmittingEdits) {
+            handleRequestEdits();
+          }
+        } else if (!isApproved && !isApproving && !isSubmittingEdits) {
+          e.preventDefault();
+          handleApproveApplication();
+        }
+        return;
+      }
+
+      // Escape key to close edit modal
+      if (e.key === 'Escape' && showEditModal) {
+        e.preventDefault();
+        setShowEditModal(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showEditModal, editNotes, isSubmittingEdits, isApproved, isApproving, handleRequestEdits, handleApproveApplication]);
+
+  // Keyboard navigation for WAI-ARIA tablist (Arrow keys / Home / End)
+  const handleTabKeyDown = (e, index) => {
+    let nextIndex = null;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      nextIndex = (index + 1) % TABS.length;
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      nextIndex = (index - 1 + TABS.length) % TABS.length;
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      nextIndex = 0;
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      nextIndex = TABS.length - 1;
+    }
+
+    if (nextIndex !== null) {
+      setViewMode('tabs');
+      setActiveTab(TABS[nextIndex].id);
+      const nextBtn = document.getElementById(`tab-btn-${TABS[nextIndex].id}`);
+      if (nextBtn) nextBtn.focus();
     }
   };
 
@@ -273,9 +334,12 @@ export default function Step3Review({ onApprove, onBack, className = '' }) {
           </div>
 
           {/* Quick Metrics Header Cards */}
-          <div className="flex flex-wrap items-center gap-3 shrink-0">
+          <div className="flex flex-wrap items-center gap-3 shrink-0" role="region" aria-label="Application review summary metrics">
             {/* Fit Score Badge */}
-            <div className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 text-center min-w-[90px]">
+            <div
+              className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 text-center min-w-[90px]"
+              aria-label={`Role Fit Score: ${fitScoreVal ?? 'not calculated'} out of 100`}
+            >
               <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Fit Score</p>
               <p className="text-xl font-black text-white mt-0.5">
                 {fitScoreVal ?? '--'}
@@ -284,7 +348,10 @@ export default function Step3Review({ onApprove, onBack, className = '' }) {
             </div>
 
             {/* ATS Score Badge */}
-            <div className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 text-center min-w-[90px]">
+            <div
+              className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 text-center min-w-[90px]"
+              aria-label={`ATS Keyword Match: ${atsScore !== undefined ? `${atsScore}%` : 'not calculated'}`}
+            >
               <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">ATS Match</p>
               <p className="text-xl font-black text-white mt-0.5">
                 {atsScore !== undefined ? `${atsScore}%` : '--'}
@@ -292,7 +359,10 @@ export default function Step3Review({ onApprove, onBack, className = '' }) {
             </div>
 
             {/* Bullets Count */}
-            <div className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 text-center min-w-[90px]">
+            <div
+              className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 text-center min-w-[90px]"
+              aria-label={`Tailored resume bullets count: ${bulletsCount}`}
+            >
               <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Bullets</p>
               <p className="text-xl font-black text-white mt-0.5">{bulletsCount}</p>
             </div>
@@ -307,6 +377,7 @@ export default function Step3Review({ onApprove, onBack, className = '' }) {
               variant="secondary"
               size="sm"
               onClick={() => (typeof onBack === 'function' ? onBack() : dispatch(setCurrentStep(2)))}
+              aria-label="Return to Step 2 pipeline execution"
             >
               ← Back to Pipeline
             </Button>
@@ -315,6 +386,7 @@ export default function Step3Review({ onApprove, onBack, className = '' }) {
               variant="secondary"
               size="sm"
               onClick={() => dispatch(setCurrentStep(1))}
+              aria-label="Restart wizard from Step 1"
             >
               Restart at Step 1
             </Button>
@@ -327,6 +399,7 @@ export default function Step3Review({ onApprove, onBack, className = '' }) {
               size="sm"
               onClick={handleExportPackage}
               disabled={isExporting}
+              aria-label="Export complete application package as text file and copy to clipboard"
             >
               {isExporting ? 'Exporting...' : '📦 Export Full Package'}
             </Button>
@@ -338,6 +411,7 @@ export default function Step3Review({ onApprove, onBack, className = '' }) {
               onClick={() => setShowEditModal(true)}
               disabled={isApproving || isApproved || isSubmittingEdits}
               className="border-slate-700 hover:border-slate-600 text-slate-200"
+              aria-label="Open dialog to request AI agent edits"
             >
               ✏️ Request Edits
             </Button>
@@ -348,13 +422,19 @@ export default function Step3Review({ onApprove, onBack, className = '' }) {
               size="md"
               onClick={handleApproveApplication}
               disabled={isApproving || isApproved || isSubmittingEdits}
-              className={`font-bold shadow-xl transition ${
+              aria-label="Approve and save application package to tracker. Shortcut: Control plus Enter"
+              className={`font-bold shadow-xl transition flex items-center ${
                 isApproved
                   ? 'bg-emerald-600 text-white cursor-default'
                   : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30'
               }`}
             >
-              {isApproving ? 'Approving...' : isApproved ? '✓ Application Approved & Saved' : 'Approve & Save Application →'}
+              <span>{isApproving ? 'Approving...' : isApproved ? '✓ Application Approved & Saved' : 'Approve & Save Application →'}</span>
+              {!isApproved && (
+                <kbd className="hidden sm:inline-flex items-center ml-2 px-1.5 py-0.5 text-[10px] font-mono font-bold tracking-wider bg-emerald-700/80 rounded border border-emerald-400/40 text-emerald-100">
+                  Ctrl+↵
+                </kbd>
+              )}
             </Button>
           </div>
         </div>
@@ -363,8 +443,12 @@ export default function Step3Review({ onApprove, onBack, className = '' }) {
       {/* Navigation Tabs Bar + All-in-One View Toggle */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-2 bg-slate-900/60 border border-slate-800 rounded-3xl backdrop-blur-sm">
         {/* The 4 Review Tabs */}
-        <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
-          {TABS.map((tab) => {
+        <div
+          role="tablist"
+          aria-label="Application review panels"
+          className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto"
+        >
+          {TABS.map((tab, idx) => {
             const isActive = viewMode === 'tabs' && activeTab === tab.id;
 
             // Get badge for each tab
@@ -382,18 +466,25 @@ export default function Step3Review({ onApprove, onBack, className = '' }) {
             return (
               <button
                 key={tab.id}
+                id={`tab-btn-${tab.id}`}
                 type="button"
+                role="tab"
+                aria-selected={isActive}
+                aria-controls={`panel-${tab.id}`}
+                tabIndex={isActive ? 0 : -1}
+                onKeyDown={(e) => handleTabKeyDown(e, idx)}
+                aria-label={`${tab.label}${badge ? `, ${badge}` : ''}`}
                 onClick={() => {
                   setViewMode('tabs');
                   setActiveTab(tab.id);
                 }}
-                className={`flex-1 sm:flex-none px-4 py-2.5 rounded-2xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+                className={`flex-1 sm:flex-none px-4 py-2.5 rounded-2xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                   isActive
                     ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25'
                     : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
                 }`}
               >
-                <span>{tab.icon}</span>
+                <span aria-hidden="true">{tab.icon}</span>
                 <span>{tab.label}</span>
                 {badge && (
                   <span
@@ -412,11 +503,17 @@ export default function Step3Review({ onApprove, onBack, className = '' }) {
         </div>
 
         {/* View Mode Toggle: Single Tab vs All 4 Panels in One Page */}
-        <div className="flex items-center gap-1 p-1 bg-slate-950 rounded-2xl border border-slate-800 self-end sm:self-auto">
+        <div
+          role="group"
+          aria-label="Display layout mode"
+          className="flex items-center gap-1 p-1 bg-slate-950 rounded-2xl border border-slate-800 self-end sm:self-auto"
+        >
           <button
             type="button"
             onClick={() => setViewMode('tabs')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-xl transition cursor-pointer ${
+            aria-pressed={viewMode === 'tabs'}
+            aria-label="Show single tabbed view"
+            className={`px-3 py-1.5 text-xs font-semibold rounded-xl transition cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-500 ${
               viewMode === 'tabs'
                 ? 'bg-slate-800 text-white shadow-sm'
                 : 'text-slate-400 hover:text-white'
@@ -427,7 +524,9 @@ export default function Step3Review({ onApprove, onBack, className = '' }) {
           <button
             type="button"
             onClick={() => setViewMode('all')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-xl transition cursor-pointer ${
+            aria-pressed={viewMode === 'all'}
+            aria-label="Show all four review panels on one page"
+            className={`px-3 py-1.5 text-xs font-semibold rounded-xl transition cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-500 ${
               viewMode === 'all'
                 ? 'bg-slate-800 text-white shadow-sm'
                 : 'text-slate-400 hover:text-white'
@@ -448,7 +547,13 @@ export default function Step3Review({ onApprove, onBack, className = '' }) {
         />
       ) : viewMode === 'tabs' ? (
         /* Tabbed Display Mode */
-        <div className="space-y-6">
+        <div
+          role="tabpanel"
+          id={`panel-${activeTab}`}
+          aria-labelledby={`tab-btn-${activeTab}`}
+          tabIndex={0}
+          className="space-y-6 focus:outline-none"
+        >
           {activeTab === 'bullets' && (
             <ErrorBoundary
               title="Resume Bullets Editor Issue"
@@ -498,12 +603,12 @@ export default function Step3Review({ onApprove, onBack, className = '' }) {
         </div>
       ) : (
         /* All 4 Panels in One Page Mode */
-        <div className="space-y-12 animate-fadeIn">
+        <div className="space-y-12 animate-fadeIn" role="region" aria-label="All application review panels">
           {/* Panel 1: Resume Bullets */}
-          <section id="section-bullets" className="space-y-3">
+          <section id="section-bullets" className="space-y-3" aria-labelledby="heading-bullets">
             <div className="flex items-center gap-2 px-1">
-              <span className="w-2.5 h-2.5 rounded-full bg-blue-400" />
-              <h2 className="text-base font-bold text-white tracking-tight">
+              <span className="w-2.5 h-2.5 rounded-full bg-blue-400" aria-hidden="true" />
+              <h2 id="heading-bullets" className="text-base font-bold text-white tracking-tight">
                 1. Resume Bullets Optimization
               </h2>
             </div>
@@ -513,10 +618,10 @@ export default function Step3Review({ onApprove, onBack, className = '' }) {
           </section>
 
           {/* Panel 2: Cover Letter */}
-          <section id="section-cover-letter" className="space-y-3">
+          <section id="section-cover-letter" className="space-y-3" aria-labelledby="heading-cover-letter">
             <div className="flex items-center gap-2 px-1">
-              <span className="w-2.5 h-2.5 rounded-full bg-purple-400" />
-              <h2 className="text-base font-bold text-white tracking-tight">
+              <span className="w-2.5 h-2.5 rounded-full bg-purple-400" aria-hidden="true" />
+              <h2 id="heading-cover-letter" className="text-base font-bold text-white tracking-tight">
                 2. Targeted Cover Letter
               </h2>
             </div>
@@ -529,10 +634,10 @@ export default function Step3Review({ onApprove, onBack, className = '' }) {
           </section>
 
           {/* Panel 3: ATS Report */}
-          <section id="section-ats" className="space-y-3">
+          <section id="section-ats" className="space-y-3" aria-labelledby="heading-ats">
             <div className="flex items-center gap-2 px-1">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
-              <h2 className="text-base font-bold text-white tracking-tight">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" aria-hidden="true" />
+              <h2 id="heading-ats" className="text-base font-bold text-white tracking-tight">
                 3. ATS Keyword Compliance Report
               </h2>
             </div>
@@ -542,10 +647,10 @@ export default function Step3Review({ onApprove, onBack, className = '' }) {
           </section>
 
           {/* Panel 4: Fit Score */}
-          <section id="section-fit" className="space-y-3">
+          <section id="section-fit" className="space-y-3" aria-labelledby="heading-fit">
             <div className="flex items-center gap-2 px-1">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-              <h2 className="text-base font-bold text-white tracking-tight">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-400" aria-hidden="true" />
+              <h2 id="heading-fit" className="text-base font-bold text-white tracking-tight">
                 4. Role Fit & Qualitative Gap Analysis
               </h2>
             </div>
@@ -559,7 +664,7 @@ export default function Step3Review({ onApprove, onBack, className = '' }) {
       {/* Bottom Sticky Action Footer */}
       <div className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-2xl backdrop-blur-md flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-3 text-xs text-slate-400">
-          <span className="w-2 h-2 rounded-full bg-emerald-400" />
+          <span className="w-2 h-2 rounded-full bg-emerald-400" aria-hidden="true" />
           <span>
             {isApproved
               ? 'Application checkpoint approved & finalized in MongoDB.'
@@ -573,6 +678,7 @@ export default function Step3Review({ onApprove, onBack, className = '' }) {
             variant="secondary"
             size="md"
             onClick={() => (typeof onBack === 'function' ? onBack() : dispatch(setCurrentStep(2)))}
+            aria-label="Return to pipeline step 2"
           >
             ← Back to Pipeline
           </Button>
@@ -583,6 +689,7 @@ export default function Step3Review({ onApprove, onBack, className = '' }) {
             size="md"
             onClick={() => setShowEditModal(true)}
             disabled={isApproving || isApproved || isSubmittingEdits}
+            aria-label="Request AI Agent pipeline edits"
             className="border-slate-700 hover:border-slate-600 text-slate-200 font-semibold"
           >
             ✏️ Request Edits
@@ -594,59 +701,77 @@ export default function Step3Review({ onApprove, onBack, className = '' }) {
             size="lg"
             onClick={handleApproveApplication}
             disabled={isApproving || isApproved || isSubmittingEdits}
-            className={`font-bold px-8 shadow-xl ${
+            aria-label="Approve and save application package to tracker. Shortcut: Control plus Enter"
+            className={`font-bold px-8 shadow-xl flex items-center ${
               isApproved
                 ? 'bg-emerald-600 text-white cursor-default'
                 : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30'
             }`}
           >
-            {isApproving ? 'Approving...' : isApproved ? '✓ Approved & Saved' : 'Approve & Save Application →'}
+            <span>{isApproving ? 'Approving...' : isApproved ? '✓ Approved & Saved' : 'Approve & Save Application →'}</span>
+            {!isApproved && (
+              <kbd className="hidden sm:inline-flex items-center ml-2 px-1.5 py-0.5 text-[10px] font-mono font-bold tracking-wider bg-emerald-700/80 rounded border border-emerald-400/40 text-emerald-100">
+                Ctrl+↵
+              </kbd>
+            )}
           </Button>
         </div>
       </div>
 
-      {/* Request Edits Interactive Modal */}
+      {/* Request Edits Interactive Modal with Focus Trap and ARIA dialog roles */}
       {showEditModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-950/80 backdrop-blur-md overflow-y-auto animate-fadeIn">
-          <div className="relative w-full max-w-2xl rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl p-6 sm:p-8 space-y-6 my-auto">
+          <div
+            ref={editModalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="request-edits-title"
+            aria-describedby="request-edits-description"
+            className="relative w-full max-w-2xl rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl p-6 sm:p-8 space-y-6 my-auto focus:outline-none"
+            tabIndex={-1}
+          >
             {/* Modal Header */}
             <div className="flex items-start justify-between gap-4">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <span className="p-2 rounded-xl bg-blue-500/10 text-blue-400 text-lg">🤖</span>
-                  <h2 className="text-xl font-bold text-white tracking-tight">
+                  <span className="p-2 rounded-xl bg-blue-500/10 text-blue-400 text-lg" aria-hidden="true">🤖</span>
+                  <h2 id="request-edits-title" className="text-xl font-bold text-white tracking-tight">
                     Request AI Agent Pipeline Edits
                   </h2>
                 </div>
-                <p className="text-xs text-slate-400 leading-relaxed">
+                <p id="request-edits-description" className="text-xs text-slate-400 leading-relaxed">
                   Provide custom guidance or feedback. The pipeline will loop back to resume tailoring and cover letter agents to regenerate your package.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setShowEditModal(false)}
-                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+                aria-label="Close dialog (Escape)"
+                title="Close dialog (Escape)"
+                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer flex items-center gap-1 text-xs"
               >
-                ✕
+                <span>✕</span>
+                <kbd className="hidden sm:inline-block px-1 py-0.5 text-[10px] font-mono text-slate-500 bg-slate-950 rounded border border-slate-800">Esc</kbd>
               </button>
             </div>
 
             {/* Quick Presets */}
             <div className="space-y-2">
-              <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              <label id="presets-label" className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                 Quick Suggestion Presets (Click to insert)
               </label>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-1.5" role="group" aria-labelledby="presets-label">
                 {EDIT_PRESETS.map((preset, idx) => (
                   <button
                     key={idx}
                     type="button"
+                    aria-label={`Insert preset: ${preset}`}
                     onClick={() => {
                       setEditNotes((prev) =>
                         prev ? `${prev}\n• ${preset}` : `• ${preset}`
                       );
                     }}
-                    className="px-2.5 py-1 text-xs rounded-lg bg-slate-950 border border-slate-800 text-slate-300 hover:text-white hover:border-slate-700 hover:bg-slate-850 transition cursor-pointer text-left"
+                    className="px-2.5 py-1 text-xs rounded-lg bg-slate-950 border border-slate-800 text-slate-300 hover:text-white hover:border-slate-700 hover:bg-slate-850 transition cursor-pointer text-left focus:outline-none focus:ring-1 focus:ring-blue-500"
                   >
                     + {preset}
                   </button>
@@ -661,7 +786,7 @@ export default function Step3Review({ onApprove, onBack, className = '' }) {
                   <label htmlFor="editNotesTextarea" className="font-semibold text-slate-300">
                     Revision Notes & Instructions
                   </label>
-                  <span>{editNotes.length} characters</span>
+                  <span aria-live="polite">{editNotes.length} characters</span>
                 </div>
                 <textarea
                   id="editNotesTextarea"
@@ -671,6 +796,7 @@ export default function Step3Review({ onApprove, onBack, className = '' }) {
                   placeholder="e.g. Focus on distributed systems and microservices in the top 2 bullets. In the cover letter, emphasize my experience scaling systems to 10M DAU and make the closing paragraph more enthusiastic."
                   className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs sm:text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition resize-none"
                   autoFocus
+                  aria-required="true"
                 />
               </div>
 
@@ -682,23 +808,32 @@ export default function Step3Review({ onApprove, onBack, className = '' }) {
                   size="md"
                   onClick={() => setShowEditModal(false)}
                   disabled={isSubmittingEdits}
+                  aria-label="Cancel and close modal (Escape)"
+                  className="flex items-center"
                 >
-                  Cancel
+                  <span>Cancel</span>
+                  <kbd className="hidden sm:inline-block ml-1.5 px-1 py-0.5 text-[10px] font-mono text-slate-400 bg-slate-800/80 rounded border border-slate-700">Esc</kbd>
                 </Button>
                 <Button
                   type="submit"
                   variant="primary"
                   size="md"
                   disabled={isSubmittingEdits || !editNotes.trim()}
-                  className="bg-blue-600 hover:bg-blue-500 font-bold px-6 shadow-lg shadow-blue-600/30"
+                  aria-label="Submit edits and re-run pipeline (Control plus Enter)"
+                  className="bg-blue-600 hover:bg-blue-500 font-bold px-6 shadow-lg shadow-blue-600/30 flex items-center"
                 >
                   {isSubmittingEdits ? (
                     <span className="flex items-center gap-2">
-                      <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden="true" />
                       Regenerating Package...
                     </span>
                   ) : (
-                    'Submit Edits & Re-run →'
+                    <>
+                      <span>Submit Edits & Re-run →</span>
+                      <kbd className="hidden sm:inline-flex items-center ml-1.5 px-1.5 py-0.5 text-[10px] font-mono bg-blue-700/90 rounded border border-blue-400/40 text-white">
+                        Ctrl+↵
+                      </kbd>
+                    </>
                   )}
                 </Button>
               </div>

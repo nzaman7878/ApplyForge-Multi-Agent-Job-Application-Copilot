@@ -75,7 +75,11 @@ function LargeScoreDial({ score = 0, tier = 'moderate' }) {
   const rotationOffset = 140; // centers 260 degree arc with opening at the bottom
 
   return (
-    <div className="relative flex flex-col items-center justify-center select-none">
+    <div
+      className="relative flex flex-col items-center justify-center select-none"
+      role="img"
+      aria-label={`Role Fit Score: ${normalizedScore} out of 100, evaluated as ${tierInfo.label}`}
+    >
       <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
         <svg
           className="transform"
@@ -83,6 +87,7 @@ function LargeScoreDial({ score = 0, tier = 'moderate' }) {
           height={size}
           viewBox={`0 0 ${size} ${size}`}
           style={{ transform: `rotate(${rotationOffset}deg)` }}
+          aria-hidden="true"
         >
           {/* Background gauge track */}
           <circle
@@ -133,7 +138,7 @@ function LargeScoreDial({ score = 0, tier = 'moderate' }) {
         <span
           className={`inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold border shadow-lg tracking-wide uppercase ${tierInfo.badgeClass}`}
         >
-          <span>{tierInfo.icon}</span>
+          <span aria-hidden="true">{tierInfo.icon}</span>
           <span>{tierInfo.label}</span>
         </span>
         <p className="text-[11px] text-slate-400 max-w-[220px] mx-auto leading-tight pt-1">
@@ -295,7 +300,7 @@ export default function FitScore({ fitScore, className = '' }) {
           </div>
 
           {/* Severity Filter Tabs */}
-          <div className="flex items-center gap-1 p-1 bg-slate-950 rounded-xl border border-slate-800">
+          <div className="flex items-center gap-1 p-1 bg-slate-950 rounded-xl border border-slate-800" role="group" aria-label="Filter skill gaps by severity">
             {[
               { id: 'all', label: `All (${gaps.length})` },
               { id: 'high', label: `High (${highGapsCount})`, color: 'text-rose-400' },
@@ -306,7 +311,9 @@ export default function FitScore({ fitScore, className = '' }) {
                 key={tab.id}
                 type="button"
                 onClick={() => setSeverityFilter(tab.id)}
-                className={`px-3 py-1 text-xs font-semibold rounded-lg transition cursor-pointer ${
+                aria-pressed={severityFilter === tab.id}
+                aria-label={`Filter gaps by ${tab.label}`}
+                className={`px-3 py-1 text-xs font-semibold rounded-lg transition cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-500 ${
                   severityFilter === tab.id
                     ? 'bg-blue-600 text-white shadow-sm'
                     : 'text-slate-400 hover:text-white hover:bg-slate-900'
@@ -331,7 +338,7 @@ export default function FitScore({ fitScore, className = '' }) {
             </p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3" role="region" aria-label="Identified skill gaps list">
             {filteredGaps.map((gap, index) => {
               const sev = SEVERITY_CONFIG[gap.severity] || SEVERITY_CONFIG.medium;
               const isExpanded = expandedGapIndices[index] !== false; // expanded by default
@@ -343,11 +350,22 @@ export default function FitScore({ fitScore, className = '' }) {
                 >
                   {/* Gap Header */}
                   <div
+                    role="button"
+                    tabIndex={0}
                     onClick={() => toggleGap(index)}
-                    className="p-4 flex items-center justify-between gap-3 cursor-pointer hover:bg-slate-900/40 transition select-none"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        toggleGap(index);
+                      }
+                    }}
+                    aria-expanded={isExpanded}
+                    aria-controls={`gap-suggestion-${index}`}
+                    aria-label={`Skill gap: ${gap.skill}, ${sev.label}. ${isExpanded ? 'Collapse' : 'Expand'} suggestion`}
+                    className="p-4 flex items-center justify-between gap-3 cursor-pointer hover:bg-slate-900/40 transition select-none focus:outline-none focus:ring-1 focus:ring-blue-500"
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <span className={`w-2.5 h-2.5 rounded-full ${sev.dotColor} shrink-0`} />
+                      <span className={`w-2.5 h-2.5 rounded-full ${sev.dotColor} shrink-0`} aria-hidden="true" />
                       <div className="min-w-0">
                         <h5 className="text-sm font-bold text-white truncate">
                           {gap.skill}
@@ -362,7 +380,7 @@ export default function FitScore({ fitScore, className = '' }) {
                       >
                         {sev.label}
                       </span>
-                      <span className="text-slate-500 text-xs">
+                      <span className="text-slate-500 text-xs" aria-hidden="true">
                         {isExpanded ? '▲' : '▼'}
                       </span>
                     </div>
@@ -370,10 +388,14 @@ export default function FitScore({ fitScore, className = '' }) {
 
                   {/* Suggestion Callout Body */}
                   {isExpanded && (
-                    <div className="px-4 pb-4 pt-1 border-t border-slate-900 bg-slate-900/30">
+                    <div
+                      id={`gap-suggestion-${index}`}
+                      className="px-4 pb-4 pt-1 border-t border-slate-900 bg-slate-900/30 animate-fadeIn"
+                    >
                       <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 text-xs text-slate-300 space-y-1">
                         <p className="font-semibold text-blue-400 flex items-center gap-1.5 text-[11px]">
-                          <span>💡 Actionable Suggestion to Bridge Gap:</span>
+                          <span aria-hidden="true">💡</span>
+                          <span>Actionable Suggestion to Bridge Gap:</span>
                         </p>
                         <p className="leading-relaxed text-slate-300 pl-4 border-l-2 border-blue-500/40">
                           {gap.suggestion}

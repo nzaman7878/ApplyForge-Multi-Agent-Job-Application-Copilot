@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import api from '../../lib/axios';
 import { useToast } from '../../hooks/useToast';
-import { Button } from '../../components/ui/Button';
+import { Button, ErrorBoundary, ReviewSkeleton } from '../../components/ui';
 import {
   BulletsEditor,
   CoverLetterEditor,
@@ -438,35 +438,62 @@ export default function Step3Review({ onApprove, onBack, className = '' }) {
         </div>
       </div>
 
-      {/* Main Panels Area */}
-      {viewMode === 'tabs' ? (
+      {/* Main Panels Area: Shows Skeleton while submitting edits or rendering tabs with ErrorBoundaries */}
+      {isSubmittingEdits ? (
+        <ReviewSkeleton
+          activeTab={activeTab}
+          title="Regenerating Application Package with Your Edits..."
+          subtitle="The AI agents are re-evaluating the candidate artifacts with your custom directives."
+          showTabs={false}
+        />
+      ) : viewMode === 'tabs' ? (
         /* Tabbed Display Mode */
         <div className="space-y-6">
           {activeTab === 'bullets' && (
-            <div className="animate-fadeIn">
-              <BulletsEditor bullets={tailoredBulletsData} />
-            </div>
+            <ErrorBoundary
+              title="Resume Bullets Editor Issue"
+              description="An issue occurred while rendering tailored resume bullets. Your data is preserved."
+            >
+              <div className="animate-fadeIn">
+                <BulletsEditor bullets={tailoredBulletsData} />
+              </div>
+            </ErrorBoundary>
           )}
 
           {activeTab === 'coverLetter' && (
-            <div className="animate-fadeIn">
-              <CoverLetterEditor
-                coverLetter={coverLetterData}
-                runId={runId}
-              />
-            </div>
+            <ErrorBoundary
+              title="Cover Letter Editor Issue"
+              description="An issue occurred while rendering your cover letter. Your data is preserved."
+            >
+              <div className="animate-fadeIn">
+                <CoverLetterEditor
+                  coverLetter={coverLetterData}
+                  runId={runId}
+                />
+              </div>
+            </ErrorBoundary>
           )}
 
           {activeTab === 'ats' && (
-            <div className="animate-fadeIn">
-              <ATSReport atsReport={atsReportData} />
-            </div>
+            <ErrorBoundary
+              title="ATS Keyword Report Issue"
+              description="An issue occurred while rendering the ATS compliance audit."
+            >
+              <div className="animate-fadeIn">
+                <ATSReport atsReport={atsReportData} />
+              </div>
+            </ErrorBoundary>
           )}
 
           {activeTab === 'fit' && (
-            <div className="animate-fadeIn">
-              <FitScore fitScore={fitScoreData} />
-            </div>
+            <ErrorBoundary
+              title="Fit Score Dial Issue"
+              description="An issue occurred while rendering the role fit & gap analysis."
+            >
+              <div className="animate-fadeIn">
+                <FitScore fitScore={fitScoreData} />
+              </div>
+            </ErrorBoundary>
           )}
         </div>
       ) : (
@@ -480,7 +507,9 @@ export default function Step3Review({ onApprove, onBack, className = '' }) {
                 1. Resume Bullets Optimization
               </h2>
             </div>
-            <BulletsEditor bullets={tailoredBulletsData} />
+            <ErrorBoundary title="Resume Bullets Panel Error">
+              <BulletsEditor bullets={tailoredBulletsData} />
+            </ErrorBoundary>
           </section>
 
           {/* Panel 2: Cover Letter */}
@@ -491,10 +520,12 @@ export default function Step3Review({ onApprove, onBack, className = '' }) {
                 2. Targeted Cover Letter
               </h2>
             </div>
-            <CoverLetterEditor
-              coverLetter={coverLetterData}
-              runId={runId}
-            />
+            <ErrorBoundary title="Cover Letter Panel Error">
+              <CoverLetterEditor
+                coverLetter={coverLetterData}
+                runId={runId}
+              />
+            </ErrorBoundary>
           </section>
 
           {/* Panel 3: ATS Report */}
@@ -505,7 +536,9 @@ export default function Step3Review({ onApprove, onBack, className = '' }) {
                 3. ATS Keyword Compliance Report
               </h2>
             </div>
-            <ATSReport atsReport={atsReportData} />
+            <ErrorBoundary title="ATS Report Panel Error">
+              <ATSReport atsReport={atsReportData} />
+            </ErrorBoundary>
           </section>
 
           {/* Panel 4: Fit Score */}
@@ -516,7 +549,9 @@ export default function Step3Review({ onApprove, onBack, className = '' }) {
                 4. Role Fit & Qualitative Gap Analysis
               </h2>
             </div>
-            <FitScore fitScore={fitScoreData} />
+            <ErrorBoundary title="Fit Score Panel Error">
+              <FitScore fitScore={fitScoreData} />
+            </ErrorBoundary>
           </section>
         </div>
       )}

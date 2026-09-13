@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import api from '../../lib/axios';
 import { Button } from '../../components/ui/Button';
+import { ReviewSkeleton } from '../../components/ui';
 import {
   setCurrentStep,
   setAgentOutputs,
@@ -537,6 +538,34 @@ export default function Step2Running() {
           })}
         </div>
       </div>
+
+      {/* Skeleton Loaders while Pipeline is Running */}
+      {pipelineStatus === 'running' && (
+        <div className="space-y-4 pt-2">
+          <div className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-blue-400 animate-ping" />
+              <h3 className="text-sm font-bold text-white tracking-tight">
+                Assembling Application Review Artifacts...
+              </h3>
+            </div>
+            <span className="text-xs text-blue-400 font-mono">
+              Live Skeleton Stream
+            </span>
+          </div>
+          <ReviewSkeleton
+            title="AI Agents Synthesizing Review Panels"
+            subtitle="Tailoring bullet points, computing ATS density, drafting cover letter, and scoring role fit..."
+            activeTab={
+              completedAgents.includes('ats')
+                ? 'ats'
+                : completedAgents.includes('tailoring')
+                  ? 'bullets'
+                  : 'bullets'
+            }
+          />
+        </div>
+      )}
 
       {/* Completed State Summary & Quick Metric Highlights */}
       {pipelineStatus === 'completed' && (

@@ -7,7 +7,7 @@ import api from '../lib/axios';
 import { useToast } from '../hooks/useToast';
 import AppLayout from '../components/layout/AppLayout';
 import { Button } from '../components/ui/Button';
-import { StepIndicator } from '../components/ui';
+import { StepIndicator, ErrorBoundary } from '../components/ui';
 import ResumeUploader from '../components/resume/ResumeUploader';
 import ResumePreview from '../components/resume/ResumePreview';
 import { JDPasteForm, JDRequirementsPanel } from '../components/jd';
@@ -484,8 +484,14 @@ export default function Apply() {
           /* Step 2 Multi-Agent Pipeline Execution */
           <Step2Running />
         ) : (
-          /* Step 3: Review Checkpoint Assembly */
-          <Step3Review onBack={() => dispatch(setCurrentStep(2))} />
+          /* Step 3: Review Checkpoint Assembly wrapped in ErrorBoundary */
+          <ErrorBoundary
+            title="Review Checkpoint Error"
+            description="An unexpected error occurred while rendering the review checkpoint. You can retry rendering or loop back to the agent pipeline."
+            onReset={() => dispatch(setCurrentStep(2))}
+          >
+            <Step3Review onBack={() => dispatch(setCurrentStep(2))} />
+          </ErrorBoundary>
         )}
 
         {/* Modal: Resume Preview */}

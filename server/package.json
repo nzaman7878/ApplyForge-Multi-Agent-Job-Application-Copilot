@@ -24,6 +24,7 @@
     "test:parser-node": "node tests/parser-node.test.js",
     "test:resume-tailoring": "node tests/resume-tailoring-node.test.js",
     "test:ats-keyword": "node tests/ats-keyword-node.test.js",
+    "test:cover-letter": "node tests/cover-letter-node.test.js",
     "dev": "npx nodemon src/index.js"
   },
   "keywords": [],

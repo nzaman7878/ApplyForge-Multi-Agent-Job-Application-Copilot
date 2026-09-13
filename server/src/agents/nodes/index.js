@@ -21,6 +21,14 @@ const {
   DEFAULT_KEYWORD_WEIGHTS,
 } = require('./atsKeywordNode');
 
+const {
+  coverLetterNode,
+  COVER_LETTER_SYSTEM_PROMPT,
+  buildCoverLetterPrompt,
+  parseCoverLetter,
+  generateCoverLetterHeuristic,
+} = require('./coverLetterNode');
+
 module.exports = {
   parserNode,
   formatStructuredResume,
@@ -36,4 +44,9 @@ module.exports = {
   generateSuggestion,
   calculateOverallScore,
   DEFAULT_KEYWORD_WEIGHTS,
+  coverLetterNode,
+  COVER_LETTER_SYSTEM_PROMPT,
+  buildCoverLetterPrompt,
+  parseCoverLetter,
+  generateCoverLetterHeuristic,
 };

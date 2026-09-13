@@ -19,6 +19,13 @@ const {
   calculateOverallScore,
   DEFAULT_KEYWORD_WEIGHTS,
 } = require('./nodes/atsKeywordNode');
+const {
+  coverLetterNode,
+  COVER_LETTER_SYSTEM_PROMPT,
+  buildCoverLetterPrompt,
+  parseCoverLetter,
+  generateCoverLetterHeuristic,
+} = require('./nodes/coverLetterNode');
 
 module.exports = {
   AgentState,
@@ -38,4 +45,9 @@ module.exports = {
   generateSuggestion,
   calculateOverallScore,
   DEFAULT_KEYWORD_WEIGHTS,
+  coverLetterNode,
+  COVER_LETTER_SYSTEM_PROMPT,
+  buildCoverLetterPrompt,
+  parseCoverLetter,
+  generateCoverLetterHeuristic,
 };

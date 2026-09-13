@@ -12,7 +12,7 @@ import ResumeUploader from '../components/resume/ResumeUploader';
 import ResumePreview from '../components/resume/ResumePreview';
 import { JDPasteForm, JDRequirementsPanel } from '../components/jd';
 import Step2Running from './apply/Step2Running';
-import { ATSReport, FitScore } from '../components/review';
+import { ATSReport, FitScore, BulletsEditor } from '../components/review';
 import { applyStep1Schema } from '../schemas/apply.schemas';
 import {
   setCurrentStep,
@@ -517,17 +517,17 @@ export default function Apply() {
             </div>
 
             {/* Review Section Navigation Tabs */}
-            <div className="flex items-center p-1 bg-slate-950 rounded-2xl border border-slate-800 max-w-md">
+            <div className="flex flex-wrap items-center p-1 bg-slate-950 rounded-2xl border border-slate-800 max-w-xl">
               <button
                 type="button"
                 onClick={() => setReviewTab('fit')}
-                className={`flex-1 py-2 text-xs font-bold rounded-xl transition cursor-pointer flex items-center justify-center gap-2 ${
+                className={`flex-1 py-2 px-3 text-xs font-bold rounded-xl transition cursor-pointer flex items-center justify-center gap-2 ${
                   reviewTab === 'fit'
                     ? 'bg-blue-600 text-white shadow-md'
                     : 'text-slate-400 hover:text-white hover:bg-slate-900'
                 }`}
               >
-                <span>Role Fit & Gap Score</span>
+                <span>Role Fit</span>
                 {agentOutputs?.fitScore?.score !== undefined && (
                   <span className="px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-blue-950/60 border border-blue-400/40 text-blue-200">
                     {agentOutputs.fitScore.score}/100
@@ -537,22 +537,38 @@ export default function Apply() {
               <button
                 type="button"
                 onClick={() => setReviewTab('ats')}
-                className={`flex-1 py-2 text-xs font-bold rounded-xl transition cursor-pointer flex items-center justify-center gap-2 ${
+                className={`flex-1 py-2 px-3 text-xs font-bold rounded-xl transition cursor-pointer flex items-center justify-center gap-2 ${
                   reviewTab === 'ats'
                     ? 'bg-blue-600 text-white shadow-md'
                     : 'text-slate-400 hover:text-white hover:bg-slate-900'
                 }`}
               >
-                <span>ATS Keyword Audit</span>
+                <span>ATS Audit</span>
                 {agentOutputs?.atsReport?.overallScore !== undefined && (
                   <span className="px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-blue-950/60 border border-blue-400/40 text-blue-200">
                     {agentOutputs.atsReport.overallScore}%
                   </span>
                 )}
               </button>
+              <button
+                type="button"
+                onClick={() => setReviewTab('bullets')}
+                className={`flex-1 py-2 px-3 text-xs font-bold rounded-xl transition cursor-pointer flex items-center justify-center gap-2 ${
+                  reviewTab === 'bullets'
+                    ? 'bg-blue-600 text-white shadow-md'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                }`}
+              >
+                <span>Tailored Bullets</span>
+                {Array.isArray(agentOutputs?.tailoredResume || agentOutputs?.tailoredBullets || agentOutputs?.state?.tailoredBullets) && (
+                  <span className="px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-blue-950/60 border border-blue-400/40 text-blue-200">
+                    {(agentOutputs.tailoredResume || agentOutputs.tailoredBullets || agentOutputs.state?.tailoredBullets || []).length}
+                  </span>
+                )}
+              </button>
             </div>
 
-            {/* Tab View: Role Fit vs ATS Keyword Report */}
+            {/* Tab View: Role Fit vs ATS Keyword Report vs Bullets Editor */}
             {reviewTab === 'fit' ? (
               <FitScore
                 fitScore={
@@ -561,11 +577,20 @@ export default function Apply() {
                   agentOutputs?.state?.fitScore
                 }
               />
-            ) : (
+            ) : reviewTab === 'ats' ? (
               <ATSReport
                 atsReport={
                   agentOutputs?.atsReport ||
                   agentOutputs?.state?.atsReport
+                }
+              />
+            ) : (
+              <BulletsEditor
+                bullets={
+                  agentOutputs?.tailoredResume ||
+                  agentOutputs?.tailoredBullets ||
+                  agentOutputs?.state?.tailoredBullets ||
+                  []
                 }
               />
             )}

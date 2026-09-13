@@ -29,6 +29,7 @@
     "test:pipeline": "node tests/agent-pipeline.test.js",
     "test:pipeline-endpoints": "node tests/pipeline-endpoints.test.js",
     "test:pipeline-run-model": "node tests/pipeline-run-model.test.js",
+    "test:applications": "node tests/application-endpoints.test.js",
     "dev": "npx nodemon src/index.js"
   },
   "keywords": [],

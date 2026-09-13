@@ -260,9 +260,12 @@ async function approvePipeline(req, res) {
     runRecord.updatedAt = new Date();
 
     // Persist changes & link/create Application in MongoDB
+    let updatedDbRun = null;
+    let createdApplication = null;
+
     if (mongoose.connection.readyState === 1) {
       try {
-        const updatedDbRun = await PipelineRun.findOneAndUpdate(
+        updatedDbRun = await PipelineRun.findOneAndUpdate(
           { runId },
           {
             status: runRecord.status,
@@ -272,6 +275,7 @@ async function approvePipeline(req, res) {
           { returnDocument: 'after' }
         );
 
+        let createdApplication = null;
         if (req.user && updatedDbRun) {
           const jdDoc = await JobDescription.findById(runRecord.jdId);
           const applicationDoc = new Application({
@@ -291,6 +295,7 @@ async function approvePipeline(req, res) {
 
           updatedDbRun.applicationId = applicationDoc._id;
           await updatedDbRun.save();
+          createdApplication = applicationDoc;
         }
       } catch (dbErr) {
         console.warn('[PipelineController] MongoDB approval persistence warning:', dbErr.message);
@@ -301,6 +306,8 @@ async function approvePipeline(req, res) {
       runId: runRecord.runId,
       state: finalState,
       status: runRecord.status,
+      applicationId: updatedDbRun?.applicationId || createdApplication?._id || null,
+      application: createdApplication,
     });
   } catch (error) {
     console.error('[PipelineController] Error approving pipeline:', error);

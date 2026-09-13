@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import api from '../../lib/axios';
 import { useToast } from '../../hooks/useToast';
@@ -28,6 +29,15 @@ const TABS = [
   { id: 'fit', label: 'Fit Score', icon: '📊' },
 ];
 
+const EDIT_PRESETS = [
+  'Emphasize leadership, architecture, and team mentorship',
+  'Add more quantifiable impact metrics and business ROI',
+  'Refine tone to be more confident, polished, and senior',
+  'Target missing ATS keywords more aggressively',
+  'Keep resume bullet points tight and under 25 words',
+  'Highlight hands-on cloud and microservices experience',
+];
+
 /**
  * Step3Review Component
  *
@@ -36,10 +46,13 @@ const TABS = [
  * - Tabbed navigation with real-time status & score pills
  * - "All Panels" stacked view toggle
  * - One-click Application Approval (`POST /api/pipeline/:runId/approve`)
+ * - Request Edits modal with notes (`POST /api/pipeline/:runId/edit`)
+ * - On approve: redirect to Application detail page
  * - Export application package (.txt / clipboard)
  */
 export default function Step3Review({ onApprove, onBack, className = '' }) {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const toast = useToast();
 
   const agentOutputs = useSelector(selectAgentOutputs);
@@ -51,6 +64,11 @@ export default function Step3Review({ onApprove, onBack, className = '' }) {
   const [isApproving, setIsApproving] = useState(false);
   const [isApproved, setIsApproved] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+
+  // Request Edits modal state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editNotes, setEditNotes] = useState('');
+  const [isSubmittingEdits, setIsSubmittingEdits] = useState(false);
 
   // Extract intermediate outputs
   const runId = agentOutputs?.runId || agentOutputs?.state?.runId;
@@ -66,12 +84,13 @@ export default function Step3Review({ onApprove, onBack, className = '' }) {
   const fitScoreVal = fitScoreData?.score;
   const hasCoverLetter = Boolean(coverLetterData?.body);
 
-  // Handle pipeline approval (resumes LangGraph to 'save' node)
+  // Handle pipeline approval (resumes LangGraph to 'save' node and redirects to Application detail)
   const handleApproveApplication = async () => {
     if (!runId) {
       setIsApproved(true);
       toast.success('Application marked as approved and finalized!');
       if (typeof onApprove === 'function') onApprove();
+      navigate('/tracker');
       return;
     }
 
@@ -93,12 +112,73 @@ export default function Step3Review({ onApprove, onBack, className = '' }) {
       if (typeof onApprove === 'function') {
         onApprove(response.data);
       }
+
+      // Redirect to Application detail page
+      const targetId = response.data?.applicationId || response.data?.application?._id || runId;
+      if (targetId) {
+        navigate(`/applications/${targetId}`);
+      } else {
+        navigate('/tracker');
+      }
     } catch (err) {
       console.error('[Step3Review] Approval error:', err);
       const errMsg = err.response?.data?.message || err.message || 'Failed to approve application';
       toast.error(errMsg);
     } finally {
       setIsApproving(false);
+    }
+  };
+
+  // Handle Request Edits submission (POST /api/pipeline/:runId/edit)
+  const handleRequestEdits = async (e) => {
+    if (e) e.preventDefault();
+    if (!editNotes.trim()) {
+      toast.error('Please enter notes or guidance for the AI agents');
+      return;
+    }
+
+    if (!runId) {
+      toast.error('No active pipeline run ID found to request edits');
+      return;
+    }
+
+    setIsSubmittingEdits(true);
+    try {
+      const payload = {
+        notes: editNotes.trim(),
+        userEdits: {
+          notes: editNotes.trim(),
+          requestedAt: new Date().toISOString(),
+        },
+      };
+
+      const response = await api.post(`/api/pipeline/${runId}/edit`, payload);
+      const revisedState = response.data?.state;
+
+      if (revisedState) {
+        dispatch(
+          setAgentOutputs({
+            ...agentOutputs,
+            status: 'awaiting_review',
+            state: revisedState,
+            tailoredResume: revisedState.tailoredBullets || revisedState.tailoredResume,
+            tailoredBullets: revisedState.tailoredBullets,
+            coverLetter: revisedState.coverLetter,
+            atsReport: revisedState.atsReport,
+            fitScore: revisedState.fitScore,
+          })
+        );
+      }
+
+      toast.success('AI agents re-ran pipeline with your edits! Review updated package.');
+      setShowEditModal(false);
+      setEditNotes('');
+    } catch (err) {
+      console.error('[Step3Review] Request edits error:', err);
+      const errMsg = err.response?.data?.message || err.message || 'Failed to request edits';
+      toast.error(errMsg);
+    } finally {
+      setIsSubmittingEdits(false);
     }
   };
 
@@ -253,10 +333,21 @@ export default function Step3Review({ onApprove, onBack, className = '' }) {
 
             <Button
               type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => setShowEditModal(true)}
+              disabled={isApproving || isApproved || isSubmittingEdits}
+              className="border-slate-700 hover:border-slate-600 text-slate-200"
+            >
+              ✏️ Request Edits
+            </Button>
+
+            <Button
+              type="button"
               variant="primary"
               size="md"
               onClick={handleApproveApplication}
-              disabled={isApproving || isApproved}
+              disabled={isApproving || isApproved || isSubmittingEdits}
               className={`font-bold shadow-xl transition ${
                 isApproved
                   ? 'bg-emerald-600 text-white cursor-default'
@@ -441,7 +532,7 @@ export default function Step3Review({ onApprove, onBack, className = '' }) {
           </span>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <Button
             type="button"
             variant="secondary"
@@ -453,10 +544,21 @@ export default function Step3Review({ onApprove, onBack, className = '' }) {
 
           <Button
             type="button"
+            variant="secondary"
+            size="md"
+            onClick={() => setShowEditModal(true)}
+            disabled={isApproving || isApproved || isSubmittingEdits}
+            className="border-slate-700 hover:border-slate-600 text-slate-200 font-semibold"
+          >
+            ✏️ Request Edits
+          </Button>
+
+          <Button
+            type="button"
             variant="primary"
             size="lg"
             onClick={handleApproveApplication}
-            disabled={isApproving || isApproved}
+            disabled={isApproving || isApproved || isSubmittingEdits}
             className={`font-bold px-8 shadow-xl ${
               isApproved
                 ? 'bg-emerald-600 text-white cursor-default'
@@ -467,6 +569,108 @@ export default function Step3Review({ onApprove, onBack, className = '' }) {
           </Button>
         </div>
       </div>
+
+      {/* Request Edits Interactive Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-950/80 backdrop-blur-md overflow-y-auto animate-fadeIn">
+          <div className="relative w-full max-w-2xl rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl p-6 sm:p-8 space-y-6 my-auto">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="p-2 rounded-xl bg-blue-500/10 text-blue-400 text-lg">🤖</span>
+                  <h2 className="text-xl font-bold text-white tracking-tight">
+                    Request AI Agent Pipeline Edits
+                  </h2>
+                </div>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Provide custom guidance or feedback. The pipeline will loop back to resume tailoring and cover letter agents to regenerate your package.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowEditModal(false)}
+                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Quick Presets */}
+            <div className="space-y-2">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                Quick Suggestion Presets (Click to insert)
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {EDIT_PRESETS.map((preset, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      setEditNotes((prev) =>
+                        prev ? `${prev}\n• ${preset}` : `• ${preset}`
+                      );
+                    }}
+                    className="px-2.5 py-1 text-xs rounded-lg bg-slate-950 border border-slate-800 text-slate-300 hover:text-white hover:border-slate-700 hover:bg-slate-850 transition cursor-pointer text-left"
+                  >
+                    + {preset}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Edit Notes Input Form */}
+            <form onSubmit={handleRequestEdits} className="space-y-4">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs text-slate-400">
+                  <label htmlFor="editNotesTextarea" className="font-semibold text-slate-300">
+                    Revision Notes & Instructions
+                  </label>
+                  <span>{editNotes.length} characters</span>
+                </div>
+                <textarea
+                  id="editNotesTextarea"
+                  rows={5}
+                  value={editNotes}
+                  onChange={(e) => setEditNotes(e.target.value)}
+                  placeholder="e.g. Focus on distributed systems and microservices in the top 2 bullets. In the cover letter, emphasize my experience scaling systems to 10M DAU and make the closing paragraph more enthusiastic."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs sm:text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition resize-none"
+                  autoFocus
+                />
+              </div>
+
+              {/* Modal Action Controls */}
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="md"
+                  onClick={() => setShowEditModal(false)}
+                  disabled={isSubmittingEdits}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="md"
+                  disabled={isSubmittingEdits || !editNotes.trim()}
+                  className="bg-blue-600 hover:bg-blue-500 font-bold px-6 shadow-lg shadow-blue-600/30"
+                >
+                  {isSubmittingEdits ? (
+                    <span className="flex items-center gap-2">
+                      <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Regenerating Package...
+                    </span>
+                  ) : (
+                    'Submit Edits & Re-run →'
+                  )}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

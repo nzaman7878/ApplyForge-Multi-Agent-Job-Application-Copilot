@@ -12,6 +12,7 @@ import ResumeUploader from '../components/resume/ResumeUploader';
 import ResumePreview from '../components/resume/ResumePreview';
 import { JDPasteForm, JDRequirementsPanel } from '../components/jd';
 import Step2Running from './apply/Step2Running';
+import { ATSReport } from '../components/review';
 import { applyStep1Schema } from '../schemas/apply.schemas';
 import {
   setCurrentStep,
@@ -20,6 +21,7 @@ import {
   selectCurrentStep,
   selectSelectedResume,
   selectSelectedJd,
+  selectAgentOutputs,
 } from '../store/applySlice';
 
 const WIZARD_STEPS = [
@@ -47,6 +49,7 @@ export default function Apply() {
   const currentStep = useSelector(selectCurrentStep);
   const selectedResume = useSelector(selectSelectedResume);
   const selectedJd = useSelector(selectSelectedJd);
+  const agentOutputs = useSelector(selectAgentOutputs);
 
   // Saved JDs list state
   const [savedJds, setSavedJds] = useState([]);
@@ -483,33 +486,37 @@ export default function Apply() {
           /* Step 2 Multi-Agent Pipeline Execution */
           <Step2Running />
         ) : (
-          /* Step 3 Placeholder: Review & Export */
-          <div className="p-12 text-center bg-slate-900/50 rounded-2xl border border-slate-800 space-y-4">
-            <div className="w-14 h-14 mx-auto rounded-2xl bg-emerald-600/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center font-bold text-xl">
-              ✨
+          /* Step 3: Review & Customization */
+          <div className="space-y-8 animate-fadeIn">
+            <div className="p-6 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-bold text-white tracking-tight">Step 3: Review & Customization</h2>
+                <p className="text-xs text-slate-400 mt-1">
+                  Examine keyword compliance, review tailored bullet points, and customize your application package.
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="md"
+                  onClick={() => dispatch(setCurrentStep(2))}
+                >
+                  ← Back to Agent Pipeline
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="md"
+                  onClick={() => dispatch(setCurrentStep(1))}
+                >
+                  Start Over at Step 1
+                </Button>
+              </div>
             </div>
-            <h2 className="text-xl font-bold text-white">Step 3: Review & Customization</h2>
-            <p className="text-sm text-slate-400 max-w-lg mx-auto">
-              Agent pipeline execution is complete! Review your tailored resume bullets, inspect the ATS keyword compliance report, and customize your personalized cover letter.
-            </p>
-            <div className="pt-2 flex justify-center gap-3">
-              <Button
-                type="button"
-                variant="secondary"
-                size="md"
-                onClick={() => dispatch(setCurrentStep(2))}
-              >
-                ← Back to Agent Pipeline
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                size="md"
-                onClick={() => dispatch(setCurrentStep(1))}
-              >
-                Start Over at Step 1
-              </Button>
-            </div>
+
+            {/* ATS Keyword Compliance Report */}
+            <ATSReport atsReport={agentOutputs?.atsReport || agentOutputs?.state?.atsReport} />
           </div>
         )}
 

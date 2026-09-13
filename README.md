@@ -306,6 +306,87 @@ graph TD
    - **`PipelineRun` Model** (`server/src/models/PipelineRun.js`): Persists full intermediate and final state, status, and telemetry.
    - **`Application` Model** (`server/src/models/Application.js`): Stores final tailored application linked to the originating `pipelineRunId` and `runId`.
 
+
+## Human-in-the-Loop Review Flow (Apply Wizard Step 3)
+
+ApplyForge places a candidate review checkpoint at the center of the AI pipeline. When the multi-agent graph finishes processing, LangGraph interrupts execution before the `save` node (`status: 'awaiting_review'`), giving candidates full inspection and revision control before anything is committed to their personal CRM.
+
+```mermaid
+flowchart TD
+    subgraph Pipeline ["Agentic Pipeline Generation"]
+        P[Parser Agent] --> T[Tailoring Agent] & K[ATS Agent]
+        T & K --> C[Cover Letter Agent]
+        C --> F[Fit Scoring Agent]
+    end
+
+    Pipeline --> Interrupt["<b>__human_interrupt__</b><br>Checkpoint Paused"]
+    
+    subgraph ReviewUI ["Interactive Human-in-the-Loop Review UI"]
+        Interrupt --> Panels{"4 Review Panels"}
+        Panels --> P1["1. Resume Bullets Editor<br>Side-by-side · Accept/Reject/Edit"]
+        Panels --> P2["2. Cover Letter Editor<br>Full-text · Live counts · Regenerate"]
+        Panels --> P3["3. ATS Keyword Report<br>Progress ring · Matched vs Missing tags"]
+        Panels --> P4["4. Fit Score Dial<br>0-100 gauge · Tier badge · Gap analysis"]
+    end
+
+    subgraph Decision ["Candidate Decision & Loopback"]
+        Panels -->|"Request Edits (Esc/Modal)"| EditModal["User Revision Notes<br>POST /api/pipeline/:runId/edit"]
+        EditModal -->|"Re-prompt Nodes"| T
+        Panels -->|"Approve & Save (Ctrl+Enter)"| ApproveAction["POST /api/pipeline/:runId/approve"]
+    end
+
+    ApproveAction --> SavedApp["<b>Application Detail Page</b><br>/applications/:id"]
+```
+
+### Review Modules & Architecture
+
+1. **Resume Bullets Editor (`client/src/components/review/BulletsEditor.jsx`)**:
+   - **Side-by-side Comparison**: Displays original vs tailored bullet points with change highlight badges.
+   - **Per-Bullet Granular Actions**: Candidate can accept, reject, or open an inline editor for each individual bullet.
+   - **Bulk Actions**: Single-click "Accept All", "Revert All", and "Copy Bullets to Clipboard".
+
+2. **Cover Letter Editor (`client/src/components/review/CoverLetterEditor.jsx`)**:
+   - **Full-page Rich Text Area**: Clean, focused text canvas with contextual formatting hints (The Hook, Core Proof, Value Alignment, Confident Close).
+   - **Live Counters**: Real-time word count, character count, and estimated reading time.
+   - **AI Regeneration**: Modal prompting with focus trapping to re-generate the cover letter based on user instructions.
+
+3. **ATS Keyword Report (`client/src/components/review/ATSReport.jsx`)**:
+   - **Score Progress Ring**: Circular SVG progress gauge showing weighted keyword coverage.
+   - **Two-Column Categorization**: Emerald tags for matched keywords (annotated with resume section location) vs rose tags for missing keywords.
+   - **Importance Badges**: `Required`, `Preferred`, and `Bonus` tags with filter chips and search filtering.
+
+4. **Fit Score Component (`client/src/components/review/FitScore.jsx`)**:
+   - **Score Dial (0–100)**: 260° radial arc gauge with color-coded gradient matching candidate readiness.
+   - **Tier Badge**: Instant classification into `Strong Match` (80–100), `Moderate Match` (60–79), or `Stretch Opportunity` (<60).
+   - **Actionable Gap Analysis**: Itemized list of gaps with severity indicators (`High`, `Medium`, `Low`) and prescriptive suggestions.
+
+5. **Checkpoint Actions & Lifecycle**:
+   - **Approve & Save Application**: Executes `POST /api/pipeline/:runId/approve`, persists the final `Application` document linked to the `PipelineRun`, and navigates to the Application detail page.
+   - **Request Edits Loopback**: Opens an accessible modal to enter revision instructions, sending `POST /api/pipeline/:runId/edit` to re-trigger the tailoring nodes with user edits.
+   - **Export Package**: One-click download of the complete application package (`.txt` markdown bundle).
+
+6. **Accessibility, Reliability & UX**:
+   - **Keyboard Shortcuts**: `Ctrl + Enter` (or `Cmd + Enter`) to approve application or submit modals; `Escape` to dismiss modals; `Arrow` keys for WAI-ARIA tab navigation.
+   - **Focus Trapping**: Custom `useFocusTrap` hook ensuring keyboard focus is trapped inside active modals with auto-focus and restoration on close.
+   - **Error Isolation**: Multi-level `ErrorBoundary` protecting each review panel independently so a rendering flaw in one does not crash the checkpoint.
+   - **Optimistic UI**: Shimmering `ReviewSkeleton` loaders while pipeline runs or re-processes edits.
+
+### Screenshot Grid
+
+<div align="center">
+
+| **1. Resume Bullets Editor** | **2. Cover Letter Editor** |
+| :---: | :---: |
+| _<!-- Screenshot Placeholder: docs/screenshots/review_bullets_editor.png -->_<br>![Resume Bullets Editor](https://raw.githubusercontent.com/nzaman7878/ApplyForge-Multi-Agent-Job-Application-Copilot/main/docs/screenshots/review_bullets_editor.png)<br>_Side-by-side original vs tailored bullets with inline editing and Accept/Reject badges_ | _<!-- Screenshot Placeholder: docs/screenshots/review_cover_letter.png -->_<br>![Cover Letter Editor](https://raw.githubusercontent.com/nzaman7878/ApplyForge-Multi-Agent-Job-Application-Copilot/main/docs/screenshots/review_cover_letter.png)<br>_Full-page editor with live word count, formatting tips, and AI regeneration modal_ |
+| **3. ATS Keyword Report** | **4. Fit Score Dial & Gaps** |
+| _<!-- Screenshot Placeholder: docs/screenshots/review_ats_report.png -->_<br>![ATS Keyword Report](https://raw.githubusercontent.com/nzaman7878/ApplyForge-Multi-Agent-Job-Application-Copilot/main/docs/screenshots/review_ats_report.png)<br>_Overall score progress ring, matched vs missing keyword tags with importance tiers_ | _<!-- Screenshot Placeholder: docs/screenshots/review_fit_score.png -->_<br>![Fit Score Component](https://raw.githubusercontent.com/nzaman7878/ApplyForge-Multi-Agent-Job-Application-Copilot/main/docs/screenshots/review_fit_score.png)<br>_260° arc score dial, tier classification badge, and actionable gap analysis list_ |
+
+| **Pipeline Progress Animation (Step 2)** | **Review Checkpoint All-Panels View (Step 3)** |
+| :---: | :---: |
+| _<!-- Screenshot Placeholder: docs/screenshots/apply_step2_pipeline.png -->_<br>![Pipeline Progress Animation](https://raw.githubusercontent.com/nzaman7878/ApplyForge-Multi-Agent-Job-Application-Copilot/main/docs/screenshots/apply_step2_pipeline.png)<br>_Animated agent progress cards lighting up as Parser, ATS, Tailoring, and Fit Score finish_ | _<!-- Screenshot Placeholder: docs/screenshots/review_all_panels.png -->_<br>![Review Checkpoint](https://raw.githubusercontent.com/nzaman7878/ApplyForge-Multi-Agent-Job-Application-Copilot/main/docs/screenshots/review_all_panels.png)<br>_Step 3 checkpoint with all four panels assembled on one page with quick jump links_ |
+
+</div>
+
 ## Frontend Authentication Flow
 
 The client application implements a complete, modern authentication system built with React 19, React Router, React Hook Form, Zod, and Tailwind CSS.
@@ -418,6 +499,9 @@ npm run test:pipeline-endpoints -w server
 
 # PipelineRun & Application Models Persistence
 npm run test:pipeline-run-model -w server
+
+# Review Flow E2E Smoke Test (upload -> paste JD -> pipeline -> review -> approve)
+npm run test:review-flow -w server
 ```
 
 

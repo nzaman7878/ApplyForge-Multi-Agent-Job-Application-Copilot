@@ -30,6 +30,7 @@
     "test:pipeline-endpoints": "node tests/pipeline-endpoints.test.js",
     "test:pipeline-run-model": "node tests/pipeline-run-model.test.js",
     "test:applications": "node tests/application-endpoints.test.js",
+    "test:review-flow": "node tests/review-flow-smoke.test.js",
     "dev": "npx nodemon src/index.js"
   },
   "keywords": [],

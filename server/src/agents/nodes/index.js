@@ -29,6 +29,15 @@ const {
   generateCoverLetterHeuristic,
 } = require('./coverLetterNode');
 
+const {
+  fitScoringNode,
+  FIT_SCORING_SYSTEM_PROMPT,
+  buildFitScoringPrompt,
+  determineTier,
+  generateFitScoreHeuristic,
+  parseFitScore,
+} = require('./fitScoringNode');
+
 module.exports = {
   parserNode,
   formatStructuredResume,
@@ -49,4 +58,10 @@ module.exports = {
   buildCoverLetterPrompt,
   parseCoverLetter,
   generateCoverLetterHeuristic,
+  fitScoringNode,
+  FIT_SCORING_SYSTEM_PROMPT,
+  buildFitScoringPrompt,
+  determineTier,
+  generateFitScoreHeuristic,
+  parseFitScore,
 };

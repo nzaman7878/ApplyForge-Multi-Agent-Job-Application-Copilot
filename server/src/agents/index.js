@@ -26,6 +26,14 @@ const {
   parseCoverLetter,
   generateCoverLetterHeuristic,
 } = require('./nodes/coverLetterNode');
+const {
+  fitScoringNode,
+  FIT_SCORING_SYSTEM_PROMPT,
+  buildFitScoringPrompt,
+  determineTier,
+  generateFitScoreHeuristic,
+  parseFitScore,
+} = require('./nodes/fitScoringNode');
 
 module.exports = {
   AgentState,
@@ -50,4 +58,11 @@ module.exports = {
   buildCoverLetterPrompt,
   parseCoverLetter,
   generateCoverLetterHeuristic,
+  fitScoringNode,
+  FIT_SCORING_SYSTEM_PROMPT,
+  buildFitScoringPrompt,
+  determineTier,
+  generateFitScoreHeuristic,
+  parseFitScore,
 };
+

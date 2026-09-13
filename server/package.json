@@ -26,6 +26,7 @@
     "test:ats-keyword": "node tests/ats-keyword-node.test.js",
     "test:cover-letter": "node tests/cover-letter-node.test.js",
     "test:fit-scoring": "node tests/fit-scoring-node.test.js",
+    "test:pipeline": "node tests/agent-pipeline.test.js",
     "dev": "npx nodemon src/index.js"
   },
   "keywords": [],

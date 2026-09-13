@@ -34,6 +34,16 @@ const {
   generateFitScoreHeuristic,
   parseFitScore,
 } = require('./nodes/fitScoringNode');
+const {
+  PIPELINE_NODES,
+  buildApplicationGraph,
+  createApplicationPipeline,
+  humanInterruptNode,
+  saveNode,
+  shouldContinueAfterHumanReview,
+  defaultApplicationPipeline,
+  pipeline,
+} = require('./pipeline');
 
 module.exports = {
   AgentState,
@@ -64,5 +74,14 @@ module.exports = {
   determineTier,
   generateFitScoreHeuristic,
   parseFitScore,
+  PIPELINE_NODES,
+  buildApplicationGraph,
+  createApplicationPipeline,
+  humanInterruptNode,
+  saveNode,
+  shouldContinueAfterHumanReview,
+  defaultApplicationPipeline,
+  pipeline,
 };
+
 

@@ -3,9 +3,11 @@ const mongoose = require('mongoose');
 const { MemorySaver } = require('@langchain/langgraph');
 const Resume = require('../models/Resume');
 const JobDescription = require('../models/JobDescription');
+const PipelineRun = require('../models/PipelineRun');
+const Application = require('../models/Application');
 const { createApplicationPipeline } = require('../agents/pipeline');
 
-// In-memory shared checkpointer and run registry
+// In-memory shared checkpointer and run registry (with MongoDB persistence backing)
 let sharedCheckpointer = new MemorySaver();
 let runsStore = new Map();
 let pipelineInstance = createApplicationPipeline({
@@ -108,7 +110,7 @@ async function runPipeline(req, res) {
 
     const checkpointState = await currentPipeline.invoke(initialState, config);
 
-    // 5. Store run in registry
+    // 5. Store run in memory registry & persist PipelineRun document in MongoDB
     const runRecord = {
       runId,
       userId: req.user ? req.user._id.toString() : null,
@@ -120,6 +122,22 @@ async function runPipeline(req, res) {
       updatedAt: new Date(),
     };
     runsStore.set(runId, runRecord);
+
+    try {
+      if (mongoose.connection.readyState === 1) {
+        const pipelineRunDoc = new PipelineRun({
+          userId: req.user ? req.user._id : null,
+          resumeId,
+          jdId,
+          runId,
+          status: 'awaiting_review',
+          state: checkpointState,
+        });
+        await pipelineRunDoc.save();
+      }
+    } catch (dbErr) {
+      console.warn('[PipelineController] MongoDB save warning:', dbErr.message);
+    }
 
     // 6. Return response
     return res.status(201).json({
@@ -143,7 +161,23 @@ async function runPipeline(req, res) {
 async function getPipelineStatus(req, res) {
   try {
     const { runId } = req.params;
-    const runRecord = runsStore.get(runId);
+    let runRecord = runsStore.get(runId);
+
+    // Fallback query to MongoDB if not in memory
+    if (!runRecord && mongoose.connection.readyState === 1) {
+      const dbRun = await PipelineRun.findOne({ runId });
+      if (dbRun) {
+        runRecord = {
+          runId: dbRun.runId,
+          userId: dbRun.userId ? dbRun.userId.toString() : null,
+          resumeId: dbRun.resumeId,
+          jdId: dbRun.jdId,
+          status: dbRun.status,
+          state: dbRun.state,
+        };
+        runsStore.set(runId, runRecord);
+      }
+    }
 
     if (!runRecord) {
       return res.status(404).json({
@@ -176,12 +210,27 @@ async function getPipelineStatus(req, res) {
 
 /**
  * POST /api/pipeline/:runId/approve
- * Resumes graph with human approval: routes to save node.
+ * Resumes graph with human approval: routes to save node and persists Application.
  */
 async function approvePipeline(req, res) {
   try {
     const { runId } = req.params;
-    const runRecord = runsStore.get(runId);
+    let runRecord = runsStore.get(runId);
+
+    if (!runRecord && mongoose.connection.readyState === 1) {
+      const dbRun = await PipelineRun.findOne({ runId });
+      if (dbRun) {
+        runRecord = {
+          runId: dbRun.runId,
+          userId: dbRun.userId ? dbRun.userId.toString() : null,
+          resumeId: dbRun.resumeId,
+          jdId: dbRun.jdId,
+          status: dbRun.status,
+          state: dbRun.state,
+        };
+        runsStore.set(runId, runRecord);
+      }
+    }
 
     if (!runRecord) {
       return res.status(404).json({
@@ -210,6 +259,44 @@ async function approvePipeline(req, res) {
     runRecord.status = finalState.status || 'saved';
     runRecord.updatedAt = new Date();
 
+    // Persist changes & link/create Application in MongoDB
+    if (mongoose.connection.readyState === 1) {
+      try {
+        const updatedDbRun = await PipelineRun.findOneAndUpdate(
+          { runId },
+          {
+            status: runRecord.status,
+            state: finalState,
+            updatedAt: new Date(),
+          },
+          { returnDocument: 'after' }
+        );
+
+        if (req.user && updatedDbRun) {
+          const jdDoc = await JobDescription.findById(runRecord.jdId);
+          const applicationDoc = new Application({
+            userId: req.user._id,
+            company: jdDoc?.company || finalState.structuredJD?.company || 'Target Company',
+            roleTitle: jdDoc?.roleTitle || finalState.structuredJD?.roleTitle || 'Target Role',
+            status: 'applied',
+            resumeId: runRecord.resumeId,
+            jdId: runRecord.jdId,
+            pipelineRunId: updatedDbRun._id,
+            runId: runRecord.runId,
+            tailoredBullets: finalState.tailoredBullets || [],
+            coverLetter: finalState.coverLetter || null,
+            fitScore: finalState.fitScore || null,
+          });
+          await applicationDoc.save();
+
+          updatedDbRun.applicationId = applicationDoc._id;
+          await updatedDbRun.save();
+        }
+      } catch (dbErr) {
+        console.warn('[PipelineController] MongoDB approval persistence warning:', dbErr.message);
+      }
+    }
+
     return res.status(200).json({
       runId: runRecord.runId,
       state: finalState,
@@ -231,7 +318,22 @@ async function approvePipeline(req, res) {
 async function editPipeline(req, res) {
   try {
     const { runId } = req.params;
-    const runRecord = runsStore.get(runId);
+    let runRecord = runsStore.get(runId);
+
+    if (!runRecord && mongoose.connection.readyState === 1) {
+      const dbRun = await PipelineRun.findOne({ runId });
+      if (dbRun) {
+        runRecord = {
+          runId: dbRun.runId,
+          userId: dbRun.userId ? dbRun.userId.toString() : null,
+          resumeId: dbRun.resumeId,
+          jdId: dbRun.jdId,
+          status: dbRun.status,
+          state: dbRun.state,
+        };
+        runsStore.set(runId, runRecord);
+      }
+    }
 
     if (!runRecord) {
       return res.status(404).json({
@@ -264,6 +366,22 @@ async function editPipeline(req, res) {
     runRecord.state = revisedState;
     runRecord.status = 'awaiting_review';
     runRecord.updatedAt = new Date();
+
+    // Persist revisions in MongoDB
+    if (mongoose.connection.readyState === 1) {
+      try {
+        await PipelineRun.findOneAndUpdate(
+          { runId },
+          {
+            status: 'awaiting_review',
+            state: revisedState,
+            updatedAt: new Date(),
+          }
+        );
+      } catch (dbErr) {
+        console.warn('[PipelineController] MongoDB edit persistence warning:', dbErr.message);
+      }
+    }
 
     return res.status(200).json({
       runId: runRecord.runId,

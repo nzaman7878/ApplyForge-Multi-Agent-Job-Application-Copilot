@@ -10,21 +10,28 @@ ApplyForge is an agentic pipeline that takes a job description + your resume, pr
 
 ## Architecture
 
-The system uses a LangGraph-powered AI agent pipeline with a human-in-the-loop checkpoint.
+The system uses a LangGraph-powered multi-agent AI pipeline with parallel agent execution and a human-in-the-loop checkpoint before finalization.
 
 ```mermaid
 graph TD
-    A[User submits resume + JD] --> B[Parser: extract resume sections + JD requirements]
-    B --> C[Resume Tailoring Agent]
-    B --> D[ATS Keyword Agent]
-    C --> E[Cover Letter Agent]
-    D --> F[Fit Scoring Agent]
-    E --> G[HUMAN CHECKPOINT: review + edit all outputs]
-    F --> G
-    G -->|Approved| H[Save final application to MongoDB]
-    G -->|Edits requested| C
-    H --> I[Application Tracker CRM]
-    I --> J[Follow-up reminder scheduling]
+    START([START: User selects Resume + JD]) --> Parser[Parser Agent Node]
+    
+    subgraph ParallelExecution ["Parallel Execution Layer"]
+        Parser --> ResumeTailor[Resume Tailoring Agent]
+        Parser --> ATSAgent[ATS Keyword Agent]
+    end
+    
+    ResumeTailor --> CoverLetter[Cover Letter Agent]
+    ATSAgent --> CoverLetter
+    
+    CoverLetter --> FitScoring[Fit Scoring Agent]
+    FitScoring --> Checkpoint["__human_interrupt__<br>Human Review Checkpoint"]
+    
+    Checkpoint -->|if humanApproved == false<br>with user edits| LoopBack["Loop Back with Edits"]
+    LoopBack --> ResumeTailor
+    
+    Checkpoint -->|if humanApproved == true| SaveNode["save<br>Persist PipelineRun & Application"]
+    SaveNode --> END([END: Ready to Apply])
 ```
 
 ## Setup
@@ -113,6 +120,16 @@ The frontend will be available at `http://localhost:5173` and the backend API at
 | `GET`    | `/api/jds`          | Protected (`Bearer <token>`) | List all job descriptions for the authenticated user, sorted in reverse chronological order.         |
 | `GET`    | `/api/jds/:id`      | Protected (`Bearer <token>`) | Retrieve full job description document with complete `parsedRequirements` and original `rawText`.   |
 | `DELETE` | `/api/jds/:id`      | Protected (`Bearer <token>`) | Delete job description with user ownership verification.                                             |
+
+### Pipeline Endpoints (`/api/pipeline`)
+
+| Method | Endpoint                    | Access                       | Description                                                                                                                                   |
+| ------ | --------------------------- | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST` | `/api/pipeline/run`         | Protected (`Bearer <token>`) | Starts the multi-agent pipeline with `resumeId` and `jdId`. Executes up to `__human_interrupt__` and returns `{ runId, state, status: 'awaiting_review' }`. |
+| `GET`  | `/api/pipeline/:runId`      | Protected (`Bearer <token>`) | Retrieves current state and status for a pipeline run.                                                                                        |
+| `POST` | `/api/pipeline/:runId/approve` | Protected (`Bearer <token>`) | Resumes graph execution with human approval. Transitions to `save` node, marks status `'saved'`, and links/persists `Application`.           |
+| `POST` | `/api/pipeline/:runId/edit`    | Protected (`Bearer <token>`) | Resumes graph execution with candidate edits (`userEdits`). Loops back to `resume_tailoring` with edits applied and re-halts at `awaiting_review`. |
+
 
 ## Resume Ingestion & Parsing Pipeline
 
@@ -219,6 +236,76 @@ graph TD
    - Interactive animated progress rail highlighting active, completed, and upcoming steps.
    - Icon badges and numbered state transitions with accessible ARIA attributes.
 
+## Multi-Agent Copilot Pipeline Architecture (LangGraph)
+
+ApplyForge coordinates a graph of specialized, cooperative AI agents powered by **LangChain**, **LangGraph**, and **Google Gemini** (`gemini-2.5-flash`). The pipeline combines parallel fan-out analysis with sequential synthesis and a human approval safety checkpoint.
+
+### Detailed Graph Topology & State Flow
+
+```mermaid
+graph TD
+    StartNode([START: Input Resume + JD]) --> ParserNode[1. Parser Agent Node<br>Format & Normalize]
+    
+    subgraph ParallelAgents ["Parallel Analysis Layer"]
+        ParserNode --> ResumeTailoringNode[2. Resume Tailoring Agent<br>Structured JSON Bullets]
+        ParserNode --> ATSKeywordNode[3. ATS Keyword Agent<br>Weighted Keyword Matching]
+    end
+    
+    ResumeTailoringNode --> CoverLetterNode[4. Cover Letter Agent<br>Targeted Narrative Generation]
+    ATSKeywordNode --> CoverLetterNode
+    
+    CoverLetterNode --> FitScoringNode[5. Fit Scoring Agent<br>Holistic Gap Analysis & Score]
+    
+    FitScoringNode --> HumanCheckpoint["6. __human_interrupt__<br>Human Review Checkpoint<br>(status: 'awaiting_review')"]
+    
+    HumanCheckpoint -->|Conditional Edge: if humanApproved == false| EditLoop["Loop Back with User Edits<br>POST /api/pipeline/:runId/edit"]
+    EditLoop --> ResumeTailoringNode
+    
+    HumanCheckpoint -->|Conditional Edge: if humanApproved == true| SaveNode["7. save Node<br>POST /api/pipeline/:runId/approve<br>(status: 'saved')"]
+    SaveNode --> PersistDB[(MongoDB:<br>PipelineRun & Application)]
+    PersistDB --> EndNode([END: Ready to Apply])
+```
+
+### Agent Nodes Breakdown
+
+1. **Parser Agent Node (`server/src/agents/nodes/parserNode.js`)**:
+   - Normalizes unstructured parsed sections from PDF/DOCX resumes into `structuredResume` (deduplicated skills, clean contact, sorted experience, normalized education/certifications).
+   - Normalizes parsed JD requirements into `structuredJD` (required skills, nice-to-have, experience, qualifications).
+   - Generates quick comparison metrics (`initialMatchRatio`, `matchedSkills`, `missingSkills`).
+
+2. **Resume Tailoring Agent Node (`server/src/agents/nodes/resumeTailoringNode.js`)**:
+   - System prompt mandates zero fabrication, authentic voice preservation, and targeted keyword reinforcement.
+   - Outputs structured JSON array: `[{ originalBullet, tailoredBullet, reasoning }]`.
+   - Incorporates candidate `userEdits` instructions dynamically on revision cycles.
+
+3. **ATS Keyword Agent Node (`server/src/agents/nodes/atsKeywordNode.js`)**:
+   - Categorizes JD keywords into importance tiers: `required` (weight: 3), `preferred` (weight: 2), and `bonus` (weight: 1).
+   - Analyzes presence across resume sections (Skills, Experience, Summary, Education, Certifications, Tailored Bullets).
+   - Outputs `{ matchedKeywords, missingKeywords, overallScore }` with actionable suggestions for missing keywords.
+
+4. **Cover Letter Agent Node (`server/src/agents/nodes/coverLetterNode.js`)**:
+   - Generates a bespoke, role-specific cover letter weaving in the candidate's tailored bullet accomplishments.
+   - Strictly prohibits generic AI clichés ("I am writing to apply", "perfect fit", "hard worker", "out-of-the-box thinker").
+   - Outputs structured JSON: `{ subject, body, keyThemes }`.
+
+5. **Fit Scoring Agent Node (`server/src/agents/nodes/fitScoringNode.js`)**:
+   - Synthesizes quantitative ATS metrics (60%) with qualitative depth and seniority evaluation (40%).
+   - Classifies compatibility tier:
+     - `80 - 100`: `'strong'`
+     - `60 - 79`: `'moderate'`
+     - `0 - 59`: `'stretch'`
+   - Produces itemized gaps with severity (`high`, `medium`, `low`) and concrete suggestions.
+   - Highlights 2-5 standout candidate strengths.
+
+6. **Human-in-the-Loop Checkpoint (`__human_interrupt__`)**:
+   - LangGraph pauses execution right after fit scoring via `interruptBefore: ['__human_interrupt__']`.
+   - State and thread are checkpointed with `MemorySaver`.
+   - Halts at `status: 'awaiting_review'` for candidate inspection and decision.
+
+7. **Persistence & Lifecycle (`PipelineRun` & `Application` Models)**:
+   - **`PipelineRun` Model** (`server/src/models/PipelineRun.js`): Persists full intermediate and final state, status, and telemetry.
+   - **`Application` Model** (`server/src/models/Application.js`): Stores final tailored application linked to the originating `pipelineRunId` and `runId`.
+
 ## Frontend Authentication Flow
 
 The client application implements a complete, modern authentication system built with React 19, React Router, React Hook Form, Zod, and Tailwind CSS.
@@ -301,5 +388,36 @@ npm run test:jd-scraper -w server
 
 # JD list, detail, and delete endpoints (GET/DELETE /api/jds)
 npm run test:jd-crud -w server
+
+# LangChain + LangGraph + Gemini setup
+npm run test:llm -w server
+
+# LangGraph Agent State Schema
+npm run test:agent-state -w server
+
+# Parser Agent Node
+npm run test:parser-node -w server
+
+# Resume Tailoring Agent Node
+npm run test:resume-tailoring -w server
+
+# ATS Keyword Agent Node
+npm run test:ats-keyword -w server
+
+# Cover Letter Agent Node
+npm run test:cover-letter -w server
+
+# Fit Scoring Agent Node
+npm run test:fit-scoring -w server
+
+# LangGraph Pipeline Assembly & Topology
+npm run test:pipeline -w server
+
+# Pipeline API Endpoints (run, status, edit, approve)
+npm run test:pipeline-endpoints -w server
+
+# PipelineRun & Application Models Persistence
+npm run test:pipeline-run-model -w server
 ```
+
 

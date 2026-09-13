@@ -28,6 +28,7 @@
     "test:fit-scoring": "node tests/fit-scoring-node.test.js",
     "test:pipeline": "node tests/agent-pipeline.test.js",
     "test:pipeline-endpoints": "node tests/pipeline-endpoints.test.js",
+    "test:pipeline-run-model": "node tests/pipeline-run-model.test.js",
     "dev": "npx nodemon src/index.js"
   },
   "keywords": [],

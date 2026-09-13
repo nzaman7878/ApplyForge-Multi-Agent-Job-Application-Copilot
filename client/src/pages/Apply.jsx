@@ -12,7 +12,7 @@ import ResumeUploader from '../components/resume/ResumeUploader';
 import ResumePreview from '../components/resume/ResumePreview';
 import { JDPasteForm, JDRequirementsPanel } from '../components/jd';
 import Step2Running from './apply/Step2Running';
-import { ATSReport, FitScore, BulletsEditor } from '../components/review';
+import { ATSReport, FitScore, BulletsEditor, CoverLetterEditor } from '../components/review';
 import { applyStep1Schema } from '../schemas/apply.schemas';
 import {
   setCurrentStep,
@@ -517,7 +517,7 @@ export default function Apply() {
             </div>
 
             {/* Review Section Navigation Tabs */}
-            <div className="flex flex-wrap items-center p-1 bg-slate-950 rounded-2xl border border-slate-800 max-w-xl">
+            <div className="flex flex-wrap items-center p-1 bg-slate-950 rounded-2xl border border-slate-800 max-w-2xl">
               <button
                 type="button"
                 onClick={() => setReviewTab('fit')}
@@ -566,9 +566,25 @@ export default function Apply() {
                   </span>
                 )}
               </button>
+              <button
+                type="button"
+                onClick={() => setReviewTab('coverLetter')}
+                className={`flex-1 py-2 px-3 text-xs font-bold rounded-xl transition cursor-pointer flex items-center justify-center gap-2 ${
+                  reviewTab === 'coverLetter'
+                    ? 'bg-blue-600 text-white shadow-md'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                }`}
+              >
+                <span>Cover Letter</span>
+                {(agentOutputs?.coverLetter || agentOutputs?.state?.coverLetter) && (
+                  <span className="px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-emerald-950/60 border border-emerald-400/40 text-emerald-300">
+                    Ready
+                  </span>
+                )}
+              </button>
             </div>
 
-            {/* Tab View: Role Fit vs ATS Keyword Report vs Bullets Editor */}
+            {/* Tab View: Role Fit vs ATS Keyword Report vs Bullets Editor vs Cover Letter Editor */}
             {reviewTab === 'fit' ? (
               <FitScore
                 fitScore={
@@ -584,7 +600,7 @@ export default function Apply() {
                   agentOutputs?.state?.atsReport
                 }
               />
-            ) : (
+            ) : reviewTab === 'bullets' ? (
               <BulletsEditor
                 bullets={
                   agentOutputs?.tailoredResume ||
@@ -592,6 +608,14 @@ export default function Apply() {
                   agentOutputs?.state?.tailoredBullets ||
                   []
                 }
+              />
+            ) : (
+              <CoverLetterEditor
+                coverLetter={
+                  agentOutputs?.coverLetter ||
+                  agentOutputs?.state?.coverLetter
+                }
+                runId={agentOutputs?.runId}
               />
             )}
           </div>

@@ -12,7 +12,7 @@ import ResumeUploader from '../components/resume/ResumeUploader';
 import ResumePreview from '../components/resume/ResumePreview';
 import { JDPasteForm, JDRequirementsPanel } from '../components/jd';
 import Step2Running from './apply/Step2Running';
-import { ATSReport, FitScore, BulletsEditor, CoverLetterEditor } from '../components/review';
+import Step3Review from './apply/Step3Review';
 import { applyStep1Schema } from '../schemas/apply.schemas';
 import {
   setCurrentStep,
@@ -21,7 +21,6 @@ import {
   selectCurrentStep,
   selectSelectedResume,
   selectSelectedJd,
-  selectAgentOutputs,
 } from '../store/applySlice';
 
 const WIZARD_STEPS = [
@@ -49,7 +48,6 @@ export default function Apply() {
   const currentStep = useSelector(selectCurrentStep);
   const selectedResume = useSelector(selectSelectedResume);
   const selectedJd = useSelector(selectSelectedJd);
-  const agentOutputs = useSelector(selectAgentOutputs);
 
   // Saved JDs list state
   const [savedJds, setSavedJds] = useState([]);
@@ -58,7 +56,6 @@ export default function Apply() {
 
   // Modal / Preview states
   const [showResumePreview, setShowResumePreview] = useState(false);
-  const [reviewTab, setReviewTab] = useState('fit'); // 'fit' | 'ats'
 
   const toast = useToast();
 
@@ -487,138 +484,8 @@ export default function Apply() {
           /* Step 2 Multi-Agent Pipeline Execution */
           <Step2Running />
         ) : (
-          /* Step 3: Review & Customization */
-          <div className="space-y-8 animate-fadeIn">
-            <div className="p-6 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-bold text-white tracking-tight">Step 3: Review & Customization</h2>
-                <p className="text-xs text-slate-400 mt-1">
-                  Examine keyword compliance, review tailored bullet points, and customize your application package.
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="md"
-                  onClick={() => dispatch(setCurrentStep(2))}
-                >
-                  ← Back to Agent Pipeline
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="md"
-                  onClick={() => dispatch(setCurrentStep(1))}
-                >
-                  Start Over at Step 1
-                </Button>
-              </div>
-            </div>
-
-            {/* Review Section Navigation Tabs */}
-            <div className="flex flex-wrap items-center p-1 bg-slate-950 rounded-2xl border border-slate-800 max-w-2xl">
-              <button
-                type="button"
-                onClick={() => setReviewTab('fit')}
-                className={`flex-1 py-2 px-3 text-xs font-bold rounded-xl transition cursor-pointer flex items-center justify-center gap-2 ${
-                  reviewTab === 'fit'
-                    ? 'bg-blue-600 text-white shadow-md'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-900'
-                }`}
-              >
-                <span>Role Fit</span>
-                {agentOutputs?.fitScore?.score !== undefined && (
-                  <span className="px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-blue-950/60 border border-blue-400/40 text-blue-200">
-                    {agentOutputs.fitScore.score}/100
-                  </span>
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => setReviewTab('ats')}
-                className={`flex-1 py-2 px-3 text-xs font-bold rounded-xl transition cursor-pointer flex items-center justify-center gap-2 ${
-                  reviewTab === 'ats'
-                    ? 'bg-blue-600 text-white shadow-md'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-900'
-                }`}
-              >
-                <span>ATS Audit</span>
-                {agentOutputs?.atsReport?.overallScore !== undefined && (
-                  <span className="px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-blue-950/60 border border-blue-400/40 text-blue-200">
-                    {agentOutputs.atsReport.overallScore}%
-                  </span>
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => setReviewTab('bullets')}
-                className={`flex-1 py-2 px-3 text-xs font-bold rounded-xl transition cursor-pointer flex items-center justify-center gap-2 ${
-                  reviewTab === 'bullets'
-                    ? 'bg-blue-600 text-white shadow-md'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-900'
-                }`}
-              >
-                <span>Tailored Bullets</span>
-                {Array.isArray(agentOutputs?.tailoredResume || agentOutputs?.tailoredBullets || agentOutputs?.state?.tailoredBullets) && (
-                  <span className="px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-blue-950/60 border border-blue-400/40 text-blue-200">
-                    {(agentOutputs.tailoredResume || agentOutputs.tailoredBullets || agentOutputs.state?.tailoredBullets || []).length}
-                  </span>
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => setReviewTab('coverLetter')}
-                className={`flex-1 py-2 px-3 text-xs font-bold rounded-xl transition cursor-pointer flex items-center justify-center gap-2 ${
-                  reviewTab === 'coverLetter'
-                    ? 'bg-blue-600 text-white shadow-md'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-900'
-                }`}
-              >
-                <span>Cover Letter</span>
-                {(agentOutputs?.coverLetter || agentOutputs?.state?.coverLetter) && (
-                  <span className="px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-emerald-950/60 border border-emerald-400/40 text-emerald-300">
-                    Ready
-                  </span>
-                )}
-              </button>
-            </div>
-
-            {/* Tab View: Role Fit vs ATS Keyword Report vs Bullets Editor vs Cover Letter Editor */}
-            {reviewTab === 'fit' ? (
-              <FitScore
-                fitScore={
-                  agentOutputs?.fitScore ||
-                  agentOutputs?.gapAnalysis ||
-                  agentOutputs?.state?.fitScore
-                }
-              />
-            ) : reviewTab === 'ats' ? (
-              <ATSReport
-                atsReport={
-                  agentOutputs?.atsReport ||
-                  agentOutputs?.state?.atsReport
-                }
-              />
-            ) : reviewTab === 'bullets' ? (
-              <BulletsEditor
-                bullets={
-                  agentOutputs?.tailoredResume ||
-                  agentOutputs?.tailoredBullets ||
-                  agentOutputs?.state?.tailoredBullets ||
-                  []
-                }
-              />
-            ) : (
-              <CoverLetterEditor
-                coverLetter={
-                  agentOutputs?.coverLetter ||
-                  agentOutputs?.state?.coverLetter
-                }
-                runId={agentOutputs?.runId}
-              />
-            )}
-          </div>
+          /* Step 3: Review Checkpoint Assembly */
+          <Step3Review onBack={() => dispatch(setCurrentStep(2))} />
         )}
 
         {/* Modal: Resume Preview */}

@@ -11,6 +11,7 @@ import { StepIndicator } from '../components/ui';
 import ResumeUploader from '../components/resume/ResumeUploader';
 import ResumePreview from '../components/resume/ResumePreview';
 import { JDPasteForm, JDRequirementsPanel } from '../components/jd';
+import Step2Running from './apply/Step2Running';
 import { applyStep1Schema } from '../schemas/apply.schemas';
 import {
   setCurrentStep,
@@ -195,9 +196,16 @@ export default function Apply() {
             <StepIndicator
               steps={WIZARD_STEPS}
               currentStep={currentStep}
-              completedSteps={isStep1Complete && currentStep > 1 ? [1] : []}
+              completedSteps={
+                currentStep > 2
+                  ? [1, 2]
+                  : isStep1Complete && currentStep > 1
+                  ? [1]
+                  : []
+              }
               onStepClick={(stepId) => {
                 if (stepId === 1) dispatch(setCurrentStep(1));
+                if (stepId === 2 && isStep1Complete) dispatch(setCurrentStep(2));
               }}
             />
 
@@ -471,26 +479,36 @@ export default function Apply() {
               </Button>
             </div>
           </form>
+        ) : currentStep === 2 ? (
+          /* Step 2 Multi-Agent Pipeline Execution */
+          <Step2Running />
         ) : (
-          /* Step 2 Placeholder State */
+          /* Step 3 Placeholder: Review & Export */
           <div className="p-12 text-center bg-slate-900/50 rounded-2xl border border-slate-800 space-y-4">
-            <div className="w-14 h-14 mx-auto rounded-2xl bg-blue-600/10 text-blue-400 border border-blue-500/20 flex items-center justify-center font-bold text-xl">
-              🤖
+            <div className="w-14 h-14 mx-auto rounded-2xl bg-emerald-600/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center font-bold text-xl">
+              ✨
             </div>
-            <h2 className="text-xl font-bold text-white">Multi-Agent Copilot Ready</h2>
+            <h2 className="text-xl font-bold text-white">Step 3: Review & Customization</h2>
             <p className="text-sm text-slate-400 max-w-lg mx-auto">
-              Step 1 complete! Selected resume ({selectedResume?.originalFilename || selectedResume?.name}) and target role ({selectedJd?.roleTitle} at {selectedJd?.company}) are ready for multi-agent gap analysis and tailoring.
+              Agent pipeline execution is complete! Review your tailored resume bullets, inspect the ATS keyword compliance report, and customize your personalized cover letter.
             </p>
-            <div className="pt-2">
+            <div className="pt-2 flex justify-center gap-3">
+              <Button
+                type="button"
+                variant="secondary"
+                size="md"
+                onClick={() => dispatch(setCurrentStep(2))}
+              >
+                ← Back to Agent Pipeline
+              </Button>
               <Button
                 type="button"
                 variant="secondary"
                 size="md"
                 onClick={() => dispatch(setCurrentStep(1))}
               >
-                ← Back to Step 1 Inputs
+                Start Over at Step 1
               </Button>
-
             </div>
           </div>
         )}

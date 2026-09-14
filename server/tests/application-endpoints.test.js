@@ -15,10 +15,11 @@ const User = require('../src/models/User');
 const Resume = require('../src/models/Resume');
 const JobDescription = require('../src/models/JobDescription');
 const Application = require('../src/models/Application');
+const PipelineRun = require('../src/models/PipelineRun');
 const { signToken } = require('../src/utils/jwt');
 
 async function testApplicationEndpoints() {
-  console.log('🧪 Testing Application API Endpoints...\n');
+  console.log('🧪 Testing Application CRUD Endpoints (Phase 72)...\n');
 
   let mongoServer;
   try {
@@ -29,16 +30,16 @@ async function testApplicationEndpoints() {
 
     // Create test users
     const userA = new User({
-      name: 'User A',
-      email: 'usera@example.com',
+      name: 'Sarah Connor',
+      email: 'sarah@skyline.dev',
       passwordHash: 'Hash123!',
     });
     await userA.save();
     const tokenA = signToken(userA._id);
 
     const userB = new User({
-      name: 'User B',
-      email: 'userb@example.com',
+      name: 'John Connor',
+      email: 'john@skyline.dev',
       passwordHash: 'Hash123!',
     });
     await userB.save();
@@ -57,22 +58,23 @@ async function testApplicationEndpoints() {
 
     const jd = await JobDescription.create({
       userId: userA._id,
-      company: 'TechCorp',
-      roleTitle: 'Senior Full Stack Engineer',
-      rawText: 'Looking for Node.js and React developers.',
+      company: 'Stripe',
+      roleTitle: 'Staff Infrastructure Engineer',
+      rawText: 'Looking for distributed systems experts.',
     });
 
-    const appDoc = await Application.create({
+    const pipelineRun = await PipelineRun.create({
       userId: userA._id,
-      company: 'TechCorp',
-      roleTitle: 'Senior Full Stack Engineer',
-      status: 'applied',
       resumeId: resume._id,
       jdId: jd._id,
-      runId: 'run-test-12345',
-      tailoredBullets: [{ tailoredBullet: 'Architected scalable services with Node.js' }],
-      coverLetter: { subject: 'Application for Senior Full Stack Engineer', body: 'Dear Hiring Manager...' },
-      fitScore: { score: 92, tier: 'strong' },
+      runId: 'run-uuid-pipeline-123',
+      status: 'awaiting_review',
+      state: {
+        tailoredBullets: [{ tailoredBullet: 'Optimized high-throughput payment gateways' }],
+        atsReport: { overallScore: 92 },
+        coverLetter: { subject: 'Staff Engineer Application' },
+        fitScore: { score: 95, tier: 'strong' },
+      },
     });
 
     // [Test 1] 401 unauthenticated
@@ -82,69 +84,218 @@ async function testApplicationEndpoints() {
       .expect(401);
     console.log('  ✔ Correctly rejected unauthenticated request');
 
-    // [Test 2] GET /api/applications for user A
-    console.log('[Test 2] GET /api/applications for User A (expect count: 1)...');
-    const listRes = await request(app)
-      .get('/api/applications')
+    // [Test 2] POST /api/applications create with validation
+    console.log('[Test 2] POST /api/applications create application...');
+    const emptyCreate = await request(app)
+      .post('/api/applications')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({});
+    assert.strictEqual(emptyCreate.status, 400);
+    assert.ok(emptyCreate.body.details.some((d) => d.field === 'company'));
+    assert.ok(emptyCreate.body.details.some((d) => d.field === 'roleTitle'));
+    console.log('  ✔ Validation correctly enforced on POST /api/applications');
+
+    const createRes = await request(app)
+      .post('/api/applications')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({
+        company: 'Stripe',
+        roleTitle: 'Staff Infrastructure Engineer',
+        status: 'applied',
+        jobDescription: 'Looking for distributed systems experts.',
+        tailoredResume: [{ tailoredBullet: 'Optimized high-throughput payment gateways' }],
+        coverLetter: { subject: 'Staff Engineer Application', body: 'Dear Hiring Team...' },
+        atsReport: { overallScore: 92 },
+        fitScore: { score: 95, tier: 'strong' },
+        resumeId: resume._id,
+        jdId: jd._id,
+        pipelineRunId: pipelineRun._id,
+        runId: pipelineRun.runId,
+        nextFollowUpAt: new Date('2026-09-20T10:00:00.000Z'),
+      });
+
+    assert.strictEqual(createRes.status, 201);
+    const createdApp = createRes.body.application;
+    assert.strictEqual(createdApp.company, 'Stripe');
+    assert.strictEqual(createdApp.roleTitle, 'Staff Infrastructure Engineer');
+    assert.strictEqual(createdApp.status, 'applied');
+    assert.strictEqual(createdApp.pipelineRunId.toString(), pipelineRun._id.toString());
+    console.log('  ✔ Created application successfully (ID:', createdApp.id, ')');
+
+    // Seed additional applications for pagination and status filtering
+    const appWishlist = await Application.create({
+      userId: userA._id,
+      company: 'Anthropic',
+      roleTitle: 'Systems Architect',
+      status: 'wishlist',
+      jobDescription: 'AI safety systems',
+    });
+
+    const appInterview = await Application.create({
+      userId: userA._id,
+      company: 'OpenAI',
+      roleTitle: 'Kernel Engineer',
+      status: 'interviewing',
+      jobDescription: 'GPU kernel engineering',
+    });
+
+    const appOffer = await Application.create({
+      userId: userA._id,
+      company: 'Google',
+      roleTitle: 'Principal Engineer',
+      status: 'offer',
+      jobDescription: 'Cloud infrastructure',
+    });
+
+    // [Test 3] GET /api/applications list with pagination
+    console.log('[Test 3] GET /api/applications pagination (page 1, limit 2)...');
+    const page1Res = await request(app)
+      .get('/api/applications?page=1&limit=2')
       .set('Authorization', `Bearer ${tokenA}`)
       .expect(200);
 
-    assert.strictEqual(listRes.body.count, 1);
-    assert.strictEqual(listRes.body.applications[0].company, 'TechCorp');
-    console.log('  ✔ User A retrieved their applications list');
+    assert.strictEqual(page1Res.body.count, 2);
+    assert.strictEqual(page1Res.body.total, 4);
+    assert.strictEqual(page1Res.body.page, 1);
+    assert.strictEqual(page1Res.body.totalPages, 2);
+    assert.strictEqual(page1Res.body.limit, 2);
+    console.log('  ✔ Page 1 retrieved 2 items out of 4 total');
 
-    // [Test 3] GET /api/applications for user B (empty)
-    console.log('[Test 3] GET /api/applications for User B (expect count: 0)...');
-    const userBRes = await request(app)
+    const page2Res = await request(app)
+      .get('/api/applications?page=2&limit=2')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .expect(200);
+
+    assert.strictEqual(page2Res.body.count, 2);
+    assert.strictEqual(page2Res.body.page, 2);
+    console.log('  ✔ Page 2 pagination verified');
+
+    // [Test 4] GET /api/applications filter by status
+    console.log('[Test 4] GET /api/applications filter by status=interviewing...');
+    const filterRes = await request(app)
+      .get('/api/applications?status=interviewing')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .expect(200);
+
+    assert.strictEqual(filterRes.body.total, 1);
+    assert.strictEqual(filterRes.body.applications[0].company, 'OpenAI');
+    assert.strictEqual(filterRes.body.applications[0].status, 'interviewing');
+    console.log('  ✔ Status filtering correctly returned only "interviewing" application');
+
+    // [Test 5] User isolation check
+    console.log('[Test 5] User B accesses /api/applications (expect total 0)...');
+    const userBList = await request(app)
       .get('/api/applications')
       .set('Authorization', `Bearer ${tokenB}`)
       .expect(200);
 
-    assert.strictEqual(userBRes.body.count, 0);
-    console.log('  ✔ User B isolated from User A\'s applications');
+    assert.strictEqual(userBList.body.total, 0);
+    assert.strictEqual(userBList.body.count, 0);
+    console.log('  ✔ Tenant isolation verified for User B');
 
-    // [Test 4] GET /api/applications/:id by MongoDB ObjectId
-    console.log('[Test 4] GET /api/applications/:id by ObjectId...');
+    // [Test 6] GET /api/applications/:id full detail by ObjectId
+    console.log('[Test 6] GET /api/applications/:id by ObjectId...');
     const detailRes = await request(app)
-      .get(`/api/applications/${appDoc._id}`)
+      .get(`/api/applications/${createdApp.id}`)
       .set('Authorization', `Bearer ${tokenA}`)
       .expect(200);
 
-    assert.strictEqual(detailRes.body.application.company, 'TechCorp');
-    assert.strictEqual(detailRes.body.application.fitScore.score, 92);
-    console.log('  ✔ Retrieved application details by ObjectId');
+    assert.strictEqual(detailRes.body.application.company, 'Stripe');
+    assert.strictEqual(detailRes.body.application.roleTitle, 'Staff Infrastructure Engineer');
+    assert.strictEqual(detailRes.body.application.fitScore.score, 95);
+    assert.strictEqual(detailRes.body.application.atsReport.overallScore, 92);
+    assert.strictEqual(detailRes.body.application.tailoredResume.length, 1);
+    console.log('  ✔ Retrieved full application detail with all CRM fields');
 
-    // [Test 5] GET /api/applications/:id by runId string
-    console.log('[Test 5] GET /api/applications/:id by runId string...');
-    const runIdRes = await request(app)
-      .get(`/api/applications/run-test-12345`)
+    // [Test 7] GET /api/applications/:id fallback by runId
+    console.log('[Test 7] GET /api/applications/:id fallback by runId...');
+    const runIdDetail = await request(app)
+      .get(`/api/applications/${pipelineRun.runId}`)
       .set('Authorization', `Bearer ${tokenA}`)
       .expect(200);
 
-    assert.strictEqual(runIdRes.body.application.runId, 'run-test-12345');
-    console.log('  ✔ Retrieved application details by runId fallback');
+    assert.strictEqual(runIdDetail.body.application.company, 'Stripe');
+    console.log('  ✔ Successfully retrieved application detail using runId');
 
-    // [Test 6] GET /api/applications/:id by unauthorized User B (403)
-    console.log('[Test 6] GET /api/applications/:id by User B (expect 403)...');
+    // [Test 8] Unauthorized access check (403)
+    console.log('[Test 8] User B attempts to access User A application (expect 403)...');
     await request(app)
-      .get(`/api/applications/${appDoc._id}`)
+      .get(`/api/applications/${createdApp.id}`)
       .set('Authorization', `Bearer ${tokenB}`)
       .expect(403);
-    console.log('  ✔ User B prohibited from accessing User A\'s application');
+    console.log('  ✔ Forbidden (403) correctly returned for cross-user access');
 
-    // [Test 7] PUT /api/applications/:id update status & notes
-    console.log('[Test 7] PUT /api/applications/:id update status & notes...');
-    const updateRes = await request(app)
-      .put(`/api/applications/${appDoc._id}`)
+    // [Test 9] PATCH /api/applications/:id update status and follow-up dates
+    console.log('[Test 9] PATCH /api/applications/:id update status & follow-up dates...');
+    const followUpDate = new Date('2026-09-25T15:00:00.000Z');
+    const patchRes = await request(app)
+      .patch(`/api/applications/${createdApp.id}`)
       .set('Authorization', `Bearer ${tokenA}`)
-      .send({ status: 'interviewing', notes: 'First round phone screen scheduled' })
+      .send({
+        status: 'interviewing',
+        lastFollowUpAt: new Date('2026-09-15T12:00:00.000Z'),
+        nextFollowUpAt: followUpDate,
+        notes: 'Recruiter phone screen passed; panel scheduled for next week.',
+      })
       .expect(200);
 
-    assert.strictEqual(updateRes.body.application.status, 'interviewing');
-    assert.strictEqual(updateRes.body.application.notes, 'First round phone screen scheduled');
-    console.log('  ✔ Application updated successfully');
+    assert.strictEqual(patchRes.body.application.status, 'interviewing');
+    assert.strictEqual(
+      new Date(patchRes.body.application.nextFollowUpAt).toISOString(),
+      followUpDate.toISOString()
+    );
+    assert.strictEqual(
+      patchRes.body.application.notes,
+      'Recruiter phone screen passed; panel scheduled for next week.'
+    );
+    console.log('  ✔ PATCH /api/applications/:id updated status, dates, and notes');
 
-    console.log('\n🎉 ALL APPLICATION ENDPOINT TESTS PASSED SUCCESSFULLY!\n');
+    // [Test 10] PATCH /api/applications/:id with invalid status (expect 400)
+    console.log('[Test 10] PATCH with invalid status (expect 400)...');
+    const invalidPatch = await request(app)
+      .patch(`/api/applications/${createdApp.id}`)
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ status: 'invalid_status_xyz' });
+    assert.strictEqual(invalidPatch.status, 400);
+    console.log('  ✔ Correctly rejected invalid status in PATCH');
+
+    // [Test 11] PUT /api/applications/:id backward compatibility
+    console.log('[Test 11] PUT /api/applications/:id backward compatibility...');
+    const putRes = await request(app)
+      .put(`/api/applications/${createdApp.id}`)
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ notes: 'Updated notes via PUT' })
+      .expect(200);
+
+    assert.strictEqual(putRes.body.application.notes, 'Updated notes via PUT');
+    console.log('  ✔ PUT /api/applications/:id functions as expected');
+
+    // [Test 12] DELETE /api/applications/:id
+    console.log('[Test 12] DELETE /api/applications/:id...');
+    // Unauthorized delete attempt
+    await request(app)
+      .delete(`/api/applications/${appWishlist._id}`)
+      .set('Authorization', `Bearer ${tokenB}`)
+      .expect(403);
+    console.log('  ✔ User B prevented from deleting User A application (403)');
+
+    // Authorized delete
+    const deleteRes = await request(app)
+      .delete(`/api/applications/${appWishlist._id}`)
+      .set('Authorization', `Bearer ${tokenA}`)
+      .expect(200);
+
+    assert.strictEqual(deleteRes.body.id.toString(), appWishlist._id.toString());
+    console.log('  ✔ Application deleted successfully');
+
+    // Confirm it's gone
+    await request(app)
+      .get(`/api/applications/${appWishlist._id}`)
+      .set('Authorization', `Bearer ${tokenA}`)
+      .expect(404);
+    console.log('  ✔ Verified deleted application returns 404');
+
+    console.log('\n🎉 ALL APPLICATION CRUD ENDPOINT TESTS PASSED SUCCESSFULLY!\n');
   } finally {
     if (mongoose.connection.readyState !== 0) {
       await mongoose.disconnect();

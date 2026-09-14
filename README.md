@@ -130,6 +130,18 @@ The frontend will be available at `http://localhost:5173` and the backend API at
 | `POST` | `/api/pipeline/:runId/approve` | Protected (`Bearer <token>`) | Resumes graph execution with human approval. Transitions to `save` node, marks status `'saved'`, and links/persists `Application`.           |
 | `POST` | `/api/pipeline/:runId/edit`    | Protected (`Bearer <token>`) | Resumes graph execution with candidate edits (`userEdits`). Loops back to `resume_tailoring` with edits applied and re-halts at `awaiting_review`. |
 
+### Application Tracker Endpoints (`/api/applications`)
+
+| Method   | Endpoint                          | Access                       | Description                                                                                                     |
+| -------- | --------------------------------- | ---------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `POST`   | `/api/applications`               | Protected (`Bearer <token>`) | Create a new tracked application with full CRM fields (`company`, `roleTitle`, `status`, `tailoredResume`, `coverLetter`, `fitScore`). |
+| `GET`    | `/api/applications`               | Protected (`Bearer <token>`) | List all tracked applications with pagination (`page`, `limit`), sorting, and filtering by `status`.           |
+| `GET`    | `/api/applications/follow-ups/due`| Protected (`Bearer <token>`) | Retrieve applications where recruitment follow-up is due (`nextFollowUpAt <= now`), sorted most overdue first. |
+| `GET`    | `/api/applications/:id`           | Protected (`Bearer <token>`) | Retrieve full application dossier with complete audit history, tailored assets, and populated relations.       |
+| `PATCH`  | `/api/applications/:id`           | Protected (`Bearer <token>`) | Update application stage (with enum validation), follow-up schedule (`lastFollowUpAt`, `nextFollowUpAt`), and notes. |
+| `DELETE` | `/api/applications/:id`           | Protected (`Bearer <token>`) | Delete application with user ownership verification.                                                            |
+
+
 
 ## Resume Ingestion & Parsing Pipeline
 
@@ -387,6 +399,69 @@ flowchart TD
 
 </div>
 
+## Application Tracker & Personal CRM
+
+ApplyForge features an end-to-end job search CRM that eliminates the chaos of tracking applications across spreadsheets and email threads. Once an application is approved from the multi-agent tailoring pipeline — or created manually — it enters the Application Tracker where candidates can visualize their pipeline, advance application stages via drag-and-drop, schedule recruiter follow-up dates, and receive automated overdue alerts.
+
+### Tracker Lifecycle & Architecture
+
+```mermaid
+graph TD
+    Approve[Pipeline Approved / Manual Create] --> Wishlist["<b>1. Drafted (Wishlist)</b><br>Initial interest & job targeting"]
+    Wishlist --> Applied["<b>2. Applied</b><br>Resume & cover letter submitted"]
+    Applied --> Interview["<b>3. Interviewing</b><br>Recruiter, technical, & onsite rounds"]
+    Interview --> Offer["<b>4. Offer</b><br>Offer received & negotiation"]
+    Interview --> Rejected["<b>5. Rejected</b><br>Process ended / archive"]
+    Applied --> Rejected
+    
+    Applied -.->|Schedule Follow-Up Date| ReminderBanner["<b>Follow-Up Reminder Banner</b><br>Surfaces when nextFollowUpAt <= now"]
+    Interview -.->|Schedule Follow-Up Date| ReminderBanner
+    ReminderBanner -->|Snooze| S1["Snooze (+1d, +3d, +7d)"]
+    ReminderBanner -->|Mark Followed Up| S2["Log lastFollowUpAt & Archive Alert"]
+```
+
+### Core Features & Components
+
+1. **Kanban Board (`client/src/components/tracker/KanbanBoard.jsx`)**:
+   - **5 Distinct Pipeline Stages**: `Drafted (Wishlist)`, `Applied`, `Interviewing`, `Offer`, and `Rejected`.
+   - **Drag-and-Drop Interaction**: Built with `@dnd-kit/core` and `@dnd-kit/sortable` featuring 5px pointer collision detection, drag overlays, smooth layout animations, and optimistic status updates.
+   - **Stage Validation**: Automatically validates status transitions and logs an audit entry to `statusHistory` in MongoDB via `PATCH /api/applications/:id`.
+
+2. **Application Card (`client/src/components/tracker/ApplicationCard.jsx`)**:
+   - **Visual Identity**: Company logo avatars with dynamic color palette and initials.
+   - **Fit Score Badges**: Highlights candidate match score (`92% Strong Match`, `78% Moderate Match`, or `Stretch`) in color-coded badges.
+   - **Application Metrics**: Days since applied counter and overdue follow-up warning beacons.
+   - **Hover Quick Actions**: Single-click actions to view full CRM dossier, edit application status via dropdown, or schedule follow-up presets.
+
+3. **Follow-Up Reminder Banner (`client/src/components/tracker/FollowUpBanner.jsx`)**:
+   - **Overdue Alert Surfacing**: Displays prominently at the top of the tracker when applications have follow-up dates due or overdue (`GET /api/applications/follow-ups/due`).
+   - **Amber Pulsing Beacon**: Visual radar ping indicator highlighting urgent recruiter touchpoints.
+   - **Collapsible Drawer**: Expands to reveal all pending follow-ups with company avatars and overdue day counters (`Due today`, `N days overdue`).
+   - **Inline Actions**:
+     - **`✓ Followed Up`**: Logs `lastFollowUpAt = now`, clears `nextFollowUpAt`, and optimistically removes the banner notification.
+     - **`⏰ Snooze`**: Popover dropdown to snooze reminders by `Tomorrow (+1d)`, `In 3 Days (+3d)`, or `In 1 Week (+7d)`.
+
+4. **Table View Toggle (`client/src/components/tracker/ApplicationTable.jsx`)**:
+   - **Interactive Tabular Mode**: High-density view for managing large volumes of applications.
+   - **Sortable Columns**: Interactive sorting by `Company & Role`, `Applied Date`, `Fit Score`, and `Status` with direction indicators (`▲` / `▼`).
+   - **Preference Persistence**: Seamlessly switches between Kanban board and Table view with user preference saved in `localStorage`.
+
+5. **Application CRM Dossier (`client/src/pages/ApplicationDetail.jsx`)**:
+   - **Complete Application History**: 5 dedicated tabs for inspecting `Tailored Bullets`, `Personalized Cover Letter`, `ATS Keyword Analysis`, `Role Fit Breakdown`, and `Status & Timeline`.
+   - **Status Timeline (`client/src/components/tracker/StatusTimeline.jsx`)**: Vertical glowing audit trail displaying the chronological progression of status changes with exact timestamps.
+   - **Follow-Up Date Scheduler**: Integrated calendar date picker with quick presets (`+3 Days`, `+1 Week`, `+2 Weeks`, `Clear`) and overdue warning alerts.
+
+### Kanban Board Screenshot
+
+<div align="center">
+
+_<!-- Screenshot: docs/screenshots/tracker_kanban.png -->_
+![Application Tracker Kanban Board](https://raw.githubusercontent.com/nzaman7878/ApplyForge-Multi-Agent-Job-Application-Copilot/main/docs/screenshots/tracker_kanban.png)
+
+_ApplyForge Application Tracker: Kanban board with drag-and-drop stages, fit score badges, application cards, and due follow-up reminder banner_
+
+</div>
+
 ## Frontend Authentication Flow
 
 The client application implements a complete, modern authentication system built with React 19, React Router, React Hook Form, Zod, and Tailwind CSS.
@@ -422,6 +497,7 @@ The client application implements a complete, modern authentication system built
 | **Login**     | _<!-- Screenshot Placeholder: docs/screenshots/login.png -->_<br>![ApplyForge Login](https://raw.githubusercontent.com/nzaman7878/ApplyForge-Multi-Agent-Job-Application-Copilot/main/docs/screenshots/login.png)<br>_Dark-mode login form with validation and error shake animation_      |
 | **Register**  | _<!-- Screenshot Placeholder: docs/screenshots/register.png -->_<br>![ApplyForge Registration](https://raw.githubusercontent.com/nzaman7878/ApplyForge-Multi-Agent-Job-Application-Copilot/main/docs/screenshots/register.png)<br>_Real-time password length indicator and Zod validation_ |
 | **Dashboard** | _<!-- Screenshot Placeholder: docs/screenshots/dashboard.png -->_<br>![ApplyForge Dashboard](https://raw.githubusercontent.com/nzaman7878/ApplyForge-Multi-Agent-Job-Application-Copilot/main/docs/screenshots/dashboard.png)<br>_AppLayout with sidebar, Navbar, and application metrics_ |
+| **Tracker**   | _<!-- Screenshot: docs/screenshots/tracker_kanban.png -->_<br>![ApplyForge Tracker](https://raw.githubusercontent.com/nzaman7878/ApplyForge-Multi-Agent-Job-Application-Copilot/main/docs/screenshots/tracker_kanban.png)<br>_Kanban board with drag-and-drop stages, fit score badges, and follow-up reminder banner_ |
 
 ### Testing & Verification Suites
 
@@ -502,6 +578,21 @@ npm run test:pipeline-run-model -w server
 
 # Review Flow E2E Smoke Test (upload -> paste JD -> pipeline -> review -> approve)
 npm run test:review-flow -w server
+
+# Application CRM Mongoose Model & Schema Validation
+npm run test:application-model -w server
+
+# Application CRUD Endpoints (pagination, status filters, tenant isolation)
+npm run test:applications -w server
+
+# Status Transition Validation Middleware & Audit History
+npm run test:status-transition -w server
+
+# Due Follow-Up Reminder Endpoint (nextFollowUpAt <= now)
+npm run test:follow-up-due -w server
+
+# Application Tracker Flow E2E Smoke Test (create -> move statuses -> follow-up -> delete)
+npm run test:tracker-flow -w server
 ```
 
 

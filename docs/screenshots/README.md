@@ -11,3 +11,4 @@ This directory stores UI walkthrough screenshots for the ApplyForge repository:
 - `review_ats_report.png` - Apply Step 3: ATS Keyword Report with match ring and tags
 - `review_fit_score.png` - Apply Step 3: Fit Score radial dial, tier badge, and gap analysis
 - `review_all_panels.png` - Apply Step 3: Review checkpoint with all four panels in one page
+- `tracker_kanban.png` - Application Tracker CRM: Kanban Board with drag-and-drop stages, fit score badges, and due follow-up reminder banner

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import AppLayout from '../components/layout/AppLayout';
-import { KanbanBoard } from '../components/tracker';
+import { KanbanBoard, ApplicationTable } from '../components/tracker';
 import PageLoader from '../components/ui/PageLoader';
 import { useToast } from '../hooks/useToast';
 import api from '../lib/axios';
@@ -12,6 +12,22 @@ export default function Tracker() {
   const [dueFollowUps, setDueFollowUps] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState(() => {
+    try {
+      return localStorage.getItem('applyforge_tracker_view') || 'kanban';
+    } catch {
+      return 'kanban';
+    }
+  });
+
+  const handleViewModeChange = (mode) => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem('applyforge_tracker_view', mode);
+    } catch (e) {
+      console.warn('Failed to persist view preference in localStorage:', e);
+    }
+  };
 
   // Fetch all applications and due reminders
   const loadData = useCallback(async () => {
@@ -206,16 +222,50 @@ export default function Tracker() {
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white flex items-center gap-2">
               <span>Application Tracker</span>
-              <span className="text-xs px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-medium">
-                Kanban
+              <span className="text-xs px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-medium capitalize">
+                {viewMode === 'kanban' ? 'Kanban Board' : 'Table View'}
               </span>
             </h1>
             <p className="text-slate-400 text-xs sm:text-sm mt-1">
-              Drag-and-drop job applications across stages to manage your hiring pipeline.
+              {viewMode === 'kanban'
+                ? 'Drag-and-drop job applications across stages to manage your hiring pipeline.'
+                : 'Sortable table overview of your applications, interview stages, and follow-ups.'}
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            {/* View Mode Toggle: Kanban vs Table */}
+            <div className="flex items-center bg-slate-900 border border-slate-800 p-1 rounded-xl shadow-inner">
+              <button
+                type="button"
+                onClick={() => handleViewModeChange('kanban')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer ${
+                  viewMode === 'kanban'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                }`}
+                title="Kanban Board View"
+                aria-pressed={viewMode === 'kanban'}
+              >
+                <span>📊</span>
+                <span className="hidden sm:inline">Kanban</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleViewModeChange('table')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer ${
+                  viewMode === 'table'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                }`}
+                title="Table List View"
+                aria-pressed={viewMode === 'table'}
+              >
+                <span>☰</span>
+                <span className="hidden sm:inline">Table</span>
+              </button>
+            </div>
+
             <Link
               to="/apply"
               className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-semibold transition shadow-sm shadow-blue-600/30"
@@ -302,15 +352,23 @@ export default function Tracker() {
           )}
         </div>
 
-        {/* Kanban Board Component */}
-        <div className="bg-slate-950/40 rounded-2xl border border-slate-800/80 p-4">
-          <KanbanBoard
+        {/* Applications View: Kanban Board or Sortable Table */}
+        {viewMode === 'kanban' ? (
+          <div className="bg-slate-950/40 rounded-2xl border border-slate-800/80 p-4">
+            <KanbanBoard
+              applications={filteredApplications}
+              onStatusChange={handleStatusChange}
+              onMarkFollowUp={handleMarkFollowUp}
+              isLoading={isLoading}
+            />
+          </div>
+        ) : (
+          <ApplicationTable
             applications={filteredApplications}
             onStatusChange={handleStatusChange}
-            onMarkFollowUp={handleMarkFollowUp}
             isLoading={isLoading}
           />
-        </div>
+        )}
       </main>
     </AppLayout>
   );

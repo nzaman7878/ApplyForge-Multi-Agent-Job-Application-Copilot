@@ -148,3 +148,38 @@ export function getDaysSinceApplied(dateVal) {
   const months = Math.floor(diffDays / 30);
   return `Applied ${months}mo ago`;
 }
+
+/**
+ * Deterministically generates a gradient based on company name string
+ */
+export function getCompanyLogoColor(companyName = '') {
+  const gradients = [
+    'from-blue-600 to-indigo-600 text-blue-100 border-blue-400/30',
+    'from-violet-600 to-purple-600 text-purple-100 border-purple-400/30',
+    'from-emerald-600 to-teal-600 text-emerald-100 border-emerald-400/30',
+    'from-amber-600 to-orange-600 text-amber-100 border-amber-400/30',
+    'from-rose-600 to-pink-600 text-rose-100 border-rose-400/30',
+    'from-cyan-600 to-blue-600 text-cyan-100 border-cyan-400/30',
+  ];
+
+  let hash = 0;
+  for (let i = 0; i < companyName.length; i++) {
+    hash = companyName.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % gradients.length;
+  return gradients[index];
+}
+
+/**
+ * Extracts initials from company name (up to 2 characters)
+ */
+export function getCompanyInitials(name = '') {
+  const clean = name.trim();
+  if (!clean) return 'AP';
+  const parts = clean.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+  return clean.slice(0, 2).toUpperCase();
+}
+

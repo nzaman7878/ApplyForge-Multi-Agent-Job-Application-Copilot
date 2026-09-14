@@ -4,7 +4,9 @@ export { default as KanbanCard } from './KanbanCard';
 export { default as ApplicationCard } from './ApplicationCard';
 export { default as ApplicationTable } from './ApplicationTable';
 export { default as StatusTimeline } from './StatusTimeline';
+export { default as FollowUpBanner } from './FollowUpBanner';
 export * from './constants';
+
 
 
 

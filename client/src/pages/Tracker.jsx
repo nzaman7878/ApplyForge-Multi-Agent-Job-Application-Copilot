@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import AppLayout from '../components/layout/AppLayout';
-import { KanbanBoard, ApplicationTable } from '../components/tracker';
+import { KanbanBoard, ApplicationTable, FollowUpBanner } from '../components/tracker';
 import PageLoader from '../components/ui/PageLoader';
 import { useToast } from '../hooks/useToast';
 import api from '../lib/axios';
@@ -162,6 +162,87 @@ export default function Tracker() {
     }
   };
 
+  // Handle marking follow-up as completed from FollowUpBanner
+  const handleMarkFollowedUp = async (applicationId) => {
+    const targetApp = applications.find(
+      (a) => (a.id || a._id) === applicationId
+    );
+    const company = targetApp?.company || 'Application';
+    const nowIso = new Date().toISOString();
+
+    // 1. Optimistic local update
+    setDueFollowUps((prev) =>
+      prev.filter((d) => (d.id || d._id) !== applicationId)
+    );
+    setApplications((prev) =>
+      prev.map((app) =>
+        (app.id || app._id) === applicationId
+          ? {
+              ...app,
+              lastFollowUpAt: nowIso,
+              nextFollowUpAt: null,
+              isOverdue: false,
+            }
+          : app
+      )
+    );
+
+    try {
+      // 2. Persist completion via PATCH
+      await api.patch(`/api/applications/${applicationId}`, {
+        lastFollowUpAt: nowIso,
+        nextFollowUpAt: null,
+      });
+
+      toast.success(`Marked follow-up completed for ${company}!`);
+    } catch (err) {
+      console.error('[Tracker] Failed to mark follow-up completed:', err);
+      toast.error('Failed to mark follow-up as completed');
+      loadData();
+    }
+  };
+
+  // Handle snoozing follow-up reminder from FollowUpBanner
+  const handleSnoozeFollowUp = async (applicationId, days) => {
+    const targetApp = applications.find(
+      (a) => (a.id || a._id) === applicationId
+    );
+    const company = targetApp?.company || 'Application';
+
+    const targetDate = new Date();
+    targetDate.setDate(targetDate.getDate() + days);
+    const isoDate = targetDate.toISOString();
+
+    // 1. Optimistic local update
+    setDueFollowUps((prev) =>
+      prev.filter((d) => (d.id || d._id) !== applicationId)
+    );
+    setApplications((prev) =>
+      prev.map((app) =>
+        (app.id || app._id) === applicationId
+          ? {
+              ...app,
+              nextFollowUpAt: isoDate,
+              isOverdue: false,
+            }
+          : app
+      )
+    );
+
+    try {
+      // 2. Persist snooze date via PATCH
+      await api.patch(`/api/applications/${applicationId}`, {
+        nextFollowUpAt: isoDate,
+      });
+
+      toast.success(`Snoozed follow-up for ${company} by ${days} day${days > 1 ? 's' : ''}`);
+    } catch (err) {
+      console.error('[Tracker] Failed to snooze follow-up:', err);
+      toast.error('Failed to snooze follow-up reminder');
+      loadData();
+    }
+  };
+
   // Filter applications by search text
   const filteredApplications = useMemo(() => {
     if (!searchQuery.trim()) return applications;
@@ -276,29 +357,11 @@ export default function Tracker() {
         </div>
 
         {/* Due Follow-Ups Banner */}
-        {dueFollowUps.length > 0 && (
-          <div className="mb-6 p-4 rounded-xl border border-amber-500/30 bg-amber-950/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-amber-200 text-xs sm:text-sm">
-            <div className="flex items-center gap-2.5">
-              <span className="flex h-3 w-3 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500" />
-              </span>
-              <p>
-                <strong className="font-semibold text-white">
-                  {dueFollowUps.length} follow-up{dueFollowUps.length > 1 ? 's' : ''} due:
-                </strong>{' '}
-                {dueFollowUps
-                  .map((d) => d.company)
-                  .slice(0, 3)
-                  .join(', ')}
-                {dueFollowUps.length > 3 ? ` and ${dueFollowUps.length - 3} more` : ''}.
-              </p>
-            </div>
-            <span className="text-[11px] text-amber-300/80 bg-amber-500/10 px-2.5 py-1 rounded-md border border-amber-500/20">
-              Check urgent cards marked with beacon
-            </span>
-          </div>
-        )}
+        <FollowUpBanner
+          dueFollowUps={dueFollowUps}
+          onMarkFollowedUp={handleMarkFollowedUp}
+          onSnooze={handleSnoozeFollowUp}
+        />
 
         {/* Metrics Overview Bar */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">

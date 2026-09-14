@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
 const validate = require('../middleware/validate');
+const validateStatus = require('../middleware/validateStatus');
 const applicationValidators = require('../validators/application.validators');
 const applicationController = require('../controllers/application.controller');
 
@@ -28,6 +29,7 @@ router.get('/:id', applicationController.getApplicationById);
 // PATCH /api/applications/:id — update status, follow-up dates, notes
 router.patch(
   '/:id',
+  validateStatus,
   validate(applicationValidators.updateApplication),
   applicationController.updateApplication
 );
@@ -35,6 +37,7 @@ router.patch(
 // PUT /api/applications/:id — full/partial update (backward compatibility)
 router.put(
   '/:id',
+  validateStatus,
   validate(applicationValidators.updateApplication),
   applicationController.updateApplication
 );

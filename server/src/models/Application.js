@@ -68,6 +68,31 @@ const applicationSchema = new mongoose.Schema(
       default: 'applied',
       index: true,
     },
+    // Status transition audit trail tracking timestamped progression
+    statusHistory: {
+      type: [
+        {
+          status: {
+            type: String,
+            enum: ['wishlist', 'applied', 'interviewing', 'offer', 'rejected'],
+            required: true,
+          },
+          changedAt: {
+            type: Date,
+            default: Date.now,
+          },
+          _id: false,
+        },
+      ],
+      default: function () {
+        return [
+          {
+            status: this.status || 'applied',
+            changedAt: this.appliedAt || new Date(),
+          },
+        ];
+      },
+    },
     // Follow-up & Lifecycle Timestamps
     appliedAt: {
       type: Date,
@@ -136,6 +161,24 @@ applicationSchema.pre('save', function () {
     this.appliedDate = this.appliedAt;
   } else if (this.appliedDate && !this.appliedAt) {
     this.appliedAt = this.appliedDate;
+  }
+
+  // Ensure statusHistory is initialized and records status changes
+  if (!this.statusHistory || this.statusHistory.length === 0) {
+    this.statusHistory = [
+      {
+        status: this.status || 'applied',
+        changedAt: this.appliedAt || new Date(),
+      },
+    ];
+  } else if (this.isModified('status')) {
+    const lastEntry = this.statusHistory[this.statusHistory.length - 1];
+    if (!lastEntry || lastEntry.status !== this.status) {
+      this.statusHistory.push({
+        status: this.status,
+        changedAt: new Date(),
+      });
+    }
   }
 
   // Synchronize tailoredResume and tailoredBullets if one is array and other empty

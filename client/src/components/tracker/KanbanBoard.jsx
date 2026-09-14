@@ -26,6 +26,7 @@ import { KANBAN_COLUMNS, normalizeStatusToColumnId } from './constants';
 export default function KanbanBoard({
   applications = [],
   onStatusChange,
+  onMarkFollowUp,
   isLoading = false,
 }) {
   const [activeCard, setActiveCard] = useState(null);
@@ -151,6 +152,8 @@ export default function KanbanBoard({
               key={col.id}
               column={col}
               applications={columnApplications[col.id] || []}
+              onStatusChange={onStatusChange}
+              onMarkFollowUp={onMarkFollowUp}
             />
           ))}
         </div>

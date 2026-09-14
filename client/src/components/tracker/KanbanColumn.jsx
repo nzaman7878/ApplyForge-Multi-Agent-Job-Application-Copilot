@@ -7,7 +7,12 @@ import KanbanCard from './KanbanCard';
  * KanbanColumn Component
  * Droppable container for each application lifecycle stage.
  */
-export default function KanbanColumn({ column, applications = [] }) {
+export default function KanbanColumn({
+  column,
+  applications = [],
+  onStatusChange,
+  onMarkFollowUp,
+}) {
   const { id, title, icon, color, headerBg, badgeBg } = column;
 
   const { setNodeRef, isOver } = useDroppable({
@@ -55,7 +60,12 @@ export default function KanbanColumn({ column, applications = [] }) {
         <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
           {applications.length > 0 ? (
             applications.map((app) => (
-              <KanbanCard key={app.id || app._id} application={app} />
+              <KanbanCard
+                key={app.id || app._id}
+                application={app}
+                onStatusChange={onStatusChange}
+                onMarkFollowUp={onMarkFollowUp}
+              />
             ))
           ) : (
             <div

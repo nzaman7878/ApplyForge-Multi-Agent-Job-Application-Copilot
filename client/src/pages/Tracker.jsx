@@ -99,6 +99,53 @@ export default function Tracker() {
     }
   };
 
+  // Handle Mark / Schedule Follow-Up
+  const handleMarkFollowUp = async (applicationId, nextFollowUpAt) => {
+    const targetApp = applications.find(
+      (a) => (a.id || a._id) === applicationId
+    );
+    if (!targetApp) return;
+
+    const previousNextFollowUp = targetApp.nextFollowUpAt;
+
+    // 1. Optimistic local update
+    setApplications((prev) =>
+      prev.map((app) =>
+        (app.id || app._id) === applicationId
+          ? { ...app, nextFollowUpAt, isOverdue: false }
+          : app
+      )
+    );
+
+    try {
+      // 2. Persist follow-up date via PATCH
+      await api.patch(`/api/applications/${applicationId}`, {
+        nextFollowUpAt,
+      });
+
+      toast.success(
+        nextFollowUpAt
+          ? `Follow-up reminder set for ${targetApp.company}`
+          : `Cleared follow-up reminder for ${targetApp.company}`
+      );
+    } catch (err) {
+      console.error('[Tracker] Failed to update follow-up date:', err);
+
+      // Revert optimistic update
+      setApplications((prev) =>
+        prev.map((app) =>
+          (app.id || app._id) === applicationId
+            ? { ...app, nextFollowUpAt: previousNextFollowUp }
+            : app
+        )
+      );
+
+      toast.error(
+        err.response?.data?.message || 'Failed to update follow-up reminder'
+      );
+    }
+  };
+
   // Filter applications by search text
   const filteredApplications = useMemo(() => {
     if (!searchQuery.trim()) return applications;
@@ -260,6 +307,7 @@ export default function Tracker() {
           <KanbanBoard
             applications={filteredApplications}
             onStatusChange={handleStatusChange}
+            onMarkFollowUp={handleMarkFollowUp}
             isLoading={isLoading}
           />
         </div>

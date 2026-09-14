@@ -68,3 +68,83 @@ export function normalizeStatusToColumnId(status) {
   }
   return 'applied';
 }
+
+/**
+ * Returns column styling and metadata for a given status
+ */
+export function getStatusInfo(status) {
+  const colId = normalizeStatusToColumnId(status);
+  return (
+    KANBAN_COLUMNS.find((c) => c.id === colId) || {
+      id: 'applied',
+      title: 'Applied',
+      icon: '🚀',
+      badgeBg: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+    }
+  );
+}
+
+/**
+ * Returns fit score badge styling and label
+ */
+export function getFitScoreStyle(score) {
+  if (score === undefined || score === null) {
+    return {
+      score: null,
+      label: 'Fit: N/A',
+      badgeClass: 'bg-slate-800 text-slate-400 border-slate-700',
+    };
+  }
+  const numericScore = typeof score === 'number' ? score : parseInt(score, 10);
+  if (isNaN(numericScore)) {
+    return {
+      score: null,
+      label: 'Fit: N/A',
+      badgeClass: 'bg-slate-800 text-slate-400 border-slate-700',
+    };
+  }
+  if (numericScore >= 80) {
+    return {
+      score: numericScore,
+      label: `${numericScore}% Strong Fit`,
+      badgeClass: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+    };
+  }
+  if (numericScore >= 60) {
+    return {
+      score: numericScore,
+      label: `${numericScore}% Moderate`,
+      badgeClass: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
+    };
+  }
+  return {
+    score: numericScore,
+    label: `${numericScore}% Stretch`,
+    badgeClass: 'bg-rose-500/15 text-rose-400 border-rose-500/30',
+  };
+}
+
+/**
+ * Formats days elapsed since applied date
+ */
+export function getDaysSinceApplied(dateVal) {
+  if (!dateVal) return 'Drafted';
+  const applied = new Date(dateVal);
+  if (isNaN(applied.getTime())) return 'Drafted';
+
+  const now = new Date();
+  const diffDays = Math.floor(
+    (now.getTime() - applied.getTime()) / (1000 * 60 * 60 * 24)
+  );
+
+  if (diffDays < 0) return 'Scheduled';
+  if (diffDays === 0) return 'Applied today';
+  if (diffDays === 1) return 'Applied 1d ago';
+  if (diffDays < 7) return `Applied ${diffDays}d ago`;
+  if (diffDays < 30) {
+    const weeks = Math.floor(diffDays / 7);
+    return `Applied ${weeks}w ago`;
+  }
+  const months = Math.floor(diffDays / 30);
+  return `Applied ${months}mo ago`;
+}

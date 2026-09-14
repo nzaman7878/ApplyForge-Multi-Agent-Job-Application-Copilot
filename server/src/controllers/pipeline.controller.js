@@ -287,9 +287,14 @@ async function approvePipeline(req, res) {
             jdId: runRecord.jdId,
             pipelineRunId: updatedDbRun._id,
             runId: runRecord.runId,
+            jobDescription: jdDoc?.rawText || finalState.structuredJD || '',
+            tailoredResume: finalState.tailoredBullets || finalState.tailoredResume || [],
             tailoredBullets: finalState.tailoredBullets || [],
             coverLetter: finalState.coverLetter || null,
+            atsReport: finalState.atsReport || null,
             fitScore: finalState.fitScore || null,
+            userEdits: finalState.userEdits || null,
+            appliedAt: new Date(),
           });
           await applicationDoc.save();
 

@@ -32,6 +32,7 @@
     "test:application-model": "node tests/application-model.test.js",
     "test:applications": "node tests/application-endpoints.test.js",
     "test:status-transition": "node tests/status-transition.test.js",
+    "test:follow-up-due": "node tests/follow-up-due.test.js",
     "test:review-flow": "node tests/review-flow-smoke.test.js",
     "dev": "npx nodemon src/index.js"
   },

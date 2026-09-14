@@ -355,10 +355,46 @@ async function deleteApplication(req, res) {
   }
 }
 
+/**
+ * GET /api/applications/follow-ups/due
+ * Retrieves all applications for the authenticated user where nextFollowUpAt is due (<= now).
+ * Returns applications sorted in ascending order of nextFollowUpAt (most overdue first).
+ */
+async function getDueFollowUps(req, res) {
+  try {
+    const userId = req.user._id;
+    const now = new Date();
+
+    const applications = await Application.find({
+      userId,
+      nextFollowUpAt: { $ne: null, $lte: now },
+    })
+      .sort({ nextFollowUpAt: 1 })
+      .populate('resumeId', 'originalFilename formattedName')
+      .populate('jdId', 'company roleTitle')
+      .populate('pipelineRunId', 'runId status');
+
+    return res.status(200).json({
+      count: applications.length,
+      asOf: now.toISOString(),
+      dueFollowUps: applications,
+      applications,
+    });
+  } catch (error) {
+    console.error('[ApplicationController] Error retrieving due follow-ups:', error);
+    return res.status(500).json({
+      error: 'Failed to retrieve due follow-ups',
+      message: error.message,
+    });
+  }
+}
+
 module.exports = {
   createApplication,
   getApplications,
   getApplicationById,
   updateApplication,
   deleteApplication,
+  getDueFollowUps,
 };
+

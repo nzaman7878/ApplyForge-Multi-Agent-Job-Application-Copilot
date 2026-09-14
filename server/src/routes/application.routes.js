@@ -23,6 +23,9 @@ router.get(
   applicationController.getApplications
 );
 
+// GET /api/applications/follow-ups/due — applications where nextFollowUpAt <= now
+router.get('/follow-ups/due', applicationController.getDueFollowUps);
+
 // GET /api/applications/:id — full detail
 router.get('/:id', applicationController.getApplicationById);
 

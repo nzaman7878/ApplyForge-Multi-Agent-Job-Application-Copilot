@@ -9,6 +9,7 @@ const resumeRoutes = require('./routes/resume.routes');
 const jdRoutes = require('./routes/jd.routes');
 const pipelineRoutes = require('./routes/pipeline.routes');
 const applicationRoutes = require('./routes/application.routes');
+const analyticsRoutes = require('./routes/analytics.routes');
 
 const app = express();
 
@@ -27,6 +28,7 @@ app.use('/api/resumes', resumeRoutes);
 app.use('/api/jds', jdRoutes);
 app.use('/api/pipeline', pipelineRoutes);
 app.use('/api/applications', applicationRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 // Start Server
 const startServer = async () => {

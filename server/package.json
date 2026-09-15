@@ -35,6 +35,7 @@
     "test:follow-up-due": "node tests/follow-up-due.test.js",
     "test:review-flow": "node tests/review-flow-smoke.test.js",
     "test:tracker-flow": "node tests/tracker-flow-smoke.test.js",
+    "test:analytics": "node tests/analytics-endpoints.test.js",
     "dev": "npx nodemon src/index.js"
   },
   "keywords": [],

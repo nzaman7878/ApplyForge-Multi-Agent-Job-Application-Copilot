@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import toast from 'react-hot-toast';
 
 /**
@@ -83,16 +83,19 @@ export const useToast = () => {
     return toast.custom(render, options);
   }, []);
 
-  return {
-    success: showSuccess,
-    error: showError,
-    info: showInfo,
-    loading: showLoading,
-    promise: showPromise,
-    dismiss,
-    custom,
-    toast,
-  };
+  return useMemo(
+    () => ({
+      success: showSuccess,
+      error: showError,
+      info: showInfo,
+      loading: showLoading,
+      promise: showPromise,
+      dismiss,
+      custom,
+      toast,
+    }),
+    [showSuccess, showError, showInfo, showLoading, showPromise, dismiss, custom]
+  );
 };
 
 // Also export the raw toast instance with the same convenience methods attached

@@ -57,7 +57,18 @@ export default function ResumeUploader({
   const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
   const ALLOWED_EXTENSIONS = ['.pdf', '.docx'];
 
-  // Fetch resumes list on mount
+  // Stable refs for props to avoid re-triggering fetch effect
+  const onSelectResumeRef = useRef(onSelectResume);
+  useEffect(() => {
+    onSelectResumeRef.current = onSelectResume;
+  }, [onSelectResume]);
+
+  const selectedResumeIdRef = useRef(selectedResumeId);
+  useEffect(() => {
+    selectedResumeIdRef.current = selectedResumeId;
+  }, [selectedResumeId]);
+
+  // Fetch resumes list once on mount
   useEffect(() => {
     let isMounted = true;
 
@@ -69,8 +80,8 @@ export default function ResumeUploader({
         if (isMounted) {
           setResumes(list);
           // If no resume currently selected, select the latest one automatically
-          if (list.length > 0 && !selectedResumeId && onSelectResume) {
-            onSelectResume(list[0]);
+          if (list.length > 0 && !selectedResumeIdRef.current && onSelectResumeRef.current) {
+            onSelectResumeRef.current(list[0]);
           }
         }
       } catch (err) {
@@ -90,7 +101,7 @@ export default function ResumeUploader({
     return () => {
       isMounted = false;
     };
-  }, [selectedResumeId, onSelectResume, toast]);
+  }, []); // Run only once on mount
 
   // Validate file
   const validateFile = (file) => {

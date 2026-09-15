@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -87,7 +87,7 @@ export default function Apply() {
     }
   }, [selectedResume, selectedJd, setValue]);
 
-  // Fetch saved JDs on mount
+  // Fetch saved JDs once on mount
   useEffect(() => {
     let isMounted = true;
 
@@ -118,29 +118,35 @@ export default function Apply() {
     return () => {
       isMounted = false;
     };
-  }, [dispatch, selectedJd, setValue]);
+  }, []); // Run once on mount
 
   // Sync selected resume with Redux & RHF
-  const handleSelectResume = (resume) => {
-    dispatch(setSelectedResume(resume));
-    if (resume) {
-      const id = resume.id || resume._id;
-      setValue('resumeId', id, { shouldValidate: true });
-    } else {
-      setValue('resumeId', '', { shouldValidate: true });
-    }
-  };
+  const handleSelectResume = useCallback(
+    (resume) => {
+      dispatch(setSelectedResume(resume));
+      if (resume) {
+        const id = resume.id || resume._id;
+        setValue('resumeId', id, { shouldValidate: true });
+      } else {
+        setValue('resumeId', '', { shouldValidate: true });
+      }
+    },
+    [dispatch, setValue]
+  );
 
   // Sync selected JD with Redux & RHF
-  const handleSelectJd = (jd) => {
-    dispatch(setSelectedJd(jd));
-    if (jd) {
-      const id = jd.id || jd._id;
-      setValue('jobDescriptionId', id, { shouldValidate: true });
-    } else {
-      setValue('jobDescriptionId', '', { shouldValidate: true });
-    }
-  };
+  const handleSelectJd = useCallback(
+    (jd) => {
+      dispatch(setSelectedJd(jd));
+      if (jd) {
+        const id = jd.id || jd._id;
+        setValue('jobDescriptionId', id, { shouldValidate: true });
+      } else {
+        setValue('jobDescriptionId', '', { shouldValidate: true });
+      }
+    },
+    [dispatch, setValue]
+  );
 
   // JD paste success callback
   const handleJdCreated = (newJd) => {
@@ -300,7 +306,7 @@ export default function Apply() {
                     <ResumeUploader
                       onUploadSuccess={handleSelectResume}
                       onSelectResume={handleSelectResume}
-                      selectedResumeId={selectedResume?.id}
+                      selectedResumeId={selectedResume?.id || selectedResume?._id}
                     />
                   </div>
                 )}

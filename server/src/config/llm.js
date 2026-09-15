@@ -18,10 +18,11 @@ const DEFAULT_TEMPERATURE = 0.7;
  */
 function createLLM(overrides = {}) {
   const apiKey =
-    overrides.apiKey ||
-    process.env.GEMINI_API_KEY ||
-    process.env.GOOGLE_API_KEY ||
-    config.ai?.geminiApiKey;
+    overrides.apiKey !== undefined
+      ? overrides.apiKey
+      : process.env.GEMINI_API_KEY ||
+        process.env.GOOGLE_API_KEY ||
+        config.ai?.geminiApiKey;
 
   const model =
     overrides.model ||

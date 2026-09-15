@@ -1,4 +1,8 @@
+const path = require('path');
 const Joi = require('joi');
+
+// Load environment variables from server/.env relative to __dirname, then fallback to current working directory
+require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 require('dotenv').config();
 
 // Define validation for all environment variables

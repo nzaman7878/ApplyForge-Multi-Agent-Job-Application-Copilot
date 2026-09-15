@@ -47,15 +47,28 @@ Before starting the app, set up your `.env` files. You can copy the provided exa
 
 ```bash
 cp server/.env.example server/.env
+cp client/.env.example client/.env
 ```
 
-| Variable            | Description                                    | Default                                |
-| ------------------- | ---------------------------------------------- | -------------------------------------- |
-| `PORT`              | The port the Express server runs on            | `5000`                                 |
-| `NODE_ENV`          | Environment mode (`development`, `production`) | `development`                          |
-| `MONGODB_URI`       | Connection string for MongoDB (required later) | `mongodb://localhost:27017/applyforge` |
-| `JWT_SECRET`        | Secret key for JWT access tokens               |                                        |
-| `ANTHROPIC_API_KEY` | API key for Claude/LangGraph                   |                                        |
+#### Server Variables (`server/.env`)
+
+| Variable             | Description                                          | Default                                |
+| -------------------- | ---------------------------------------------------- | -------------------------------------- |
+| `PORT`               | The port the Express server runs on                  | `5000`                                 |
+| `NODE_ENV`           | Environment mode (`development`, `production`, `test`)| `development`                          |
+| `MONGODB_URI`        | Connection string for MongoDB                        | `mongodb://localhost:27017/applyforge` |
+| `JWT_SECRET`         | Secret key for JWT access tokens                     | _Required_                             |
+| `JWT_REFRESH_SECRET` | Secret key for JWT refresh tokens                    | _Required_                             |
+| `JWT_EXPIRES_IN`     | Expiration duration for access tokens               | `7d`                                   |
+| `GEMINI_API_KEY`     | API key for Google Gemini (`@langchain/google-genai`)| _Required for AI Agent pipeline_      |
+| `LLM_MODEL`          | Google Gemini model identifier                       | `gemini-2.5-flash`                     |
+| `LLM_TEMPERATURE`    | Generation temperature controlling randomness (0–1)  | `0.7`                                  |
+
+#### Client Variables (`client/.env`)
+
+| Variable       | Description                                  | Default                 |
+| -------------- | -------------------------------------------- | ----------------------- |
+| `VITE_API_URL` | Base HTTP endpoint for the backend API server| `http://localhost:5000` |
 
 ### Running the App Locally
 

@@ -8,3 +8,5 @@ export {
   OpenFollowUpsCard,
   KPICardsGrid,
 } from './StatCard';
+
+export { default as RecentApplications } from './RecentApplications';

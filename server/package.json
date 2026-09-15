@@ -36,6 +36,8 @@
     "test:review-flow": "node tests/review-flow-smoke.test.js",
     "test:tracker-flow": "node tests/tracker-flow-smoke.test.js",
     "test:analytics": "node tests/analytics-endpoints.test.js",
+    "test:dashboard": "node tests/dashboard-flow-smoke.test.js",
+    "seed:dashboard": "node scripts/seed-dashboard.js",
     "dev": "npx nodemon src/index.js"
   },
   "keywords": [],

@@ -141,6 +141,15 @@ The frontend will be available at `http://localhost:5173` and the backend API at
 | `PATCH`  | `/api/applications/:id`           | Protected (`Bearer <token>`) | Update application stage (with enum validation), follow-up schedule (`lastFollowUpAt`, `nextFollowUpAt`), and notes. |
 | `DELETE` | `/api/applications/:id`           | Protected (`Bearer <token>`) | Delete application with user ownership verification.                                                            |
 
+### Analytics Endpoints (`/api/analytics`)
+
+| Method | Endpoint                        | Access                       | Description                                                                                                                  |
+| ------ | ------------------------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `GET`  | `/api/analytics/summary`           | Protected (`Bearer <token>`) | High-level KPI metrics: `totalApplied`, `totalActive`, `totalInterviews`, `totalOffers`, `responseRate`, and `avgFitScore`. |
+| `GET`  | `/api/analytics/timeline`          | Protected (`Bearer <token>`) | 12-week velocity buckets showing total applications and submitted counts per week for trend analysis.                       |
+| `GET`  | `/api/analytics/score-vs-response` | Protected (`Bearer <token>`) | Fit score tier bands (0-40, 41-70, 71-100) vs response rate %, showing the direct impact of high ATS tailoring.             |
+
+
 
 
 ## Resume Ingestion & Parsing Pipeline
@@ -462,6 +471,70 @@ _ApplyForge Application Tracker: Kanban board with drag-and-drop stages, fit sco
 
 </div>
 
+## Analytics & Performance Dashboard
+
+ApplyForge includes a dedicated, real-time job search intelligence dashboard powered by **Recharts** and modern glassmorphic UI components. It aggregates candidate activity, detects trends in application velocity, correlates tailoring fit scores with interview callback rates, and highlights actionable next steps.
+
+### Dashboard Preview
+
+<div align="center">
+
+_<!-- Screenshot: docs/screenshots/dashboard.png -->_
+![ApplyForge Analytics Dashboard](https://raw.githubusercontent.com/nzaman7878/ApplyForge-Multi-Agent-Job-Application-Copilot/main/docs/screenshots/dashboard.png)
+
+_ApplyForge Analytics & Performance Dashboard: Real-time KPI stat cards, 12-week application velocity area chart, pipeline status distribution donut, fit score vs response rate grouped bar chart, and recent applications audit feed_
+
+</div>
+
+### Key Dashboard Modules
+
+1. **Executive KPI Stat Cards (`client/src/components/dashboard/StatCard.jsx`)**:
+   - **Total Applied**: Total volume of job applications submitted.
+   - **Response Rate**: Percentage of applications transitioning to Interview or Offer stages.
+   - **Avg Fit Score**: Average ATS keyword and qualification alignment score across tailored applications.
+   - **Open Follow-ups**: Real-time counter of applications with overdue or impending recruiter check-ins.
+   - Includes animated count-up numerical transitions on initial load and month-over-month percentage trend badges (`+X% vs last month`).
+
+2. **Application Velocity Timeline Chart (`client/src/components/charts/TimelineChart.jsx`)**:
+   - 12-week rolling area chart plotting weekly submission volume and active pipeline trajectories.
+   - Customized dark-theme Cartesian grid, gradient fill (`#6366f1` to `#a855f7`), and tooltip detailing exact weekly metrics.
+   - Smooth animated entry curves.
+
+3. **Status Distribution Donut (`client/src/components/charts/StatusDonut.jsx`)**:
+   - Multi-segment donut chart visualizing candidate pipeline distribution across 7 distinct stages (`Draft`, `Tailoring`, `Ready`, `Applied`, `Interviewing`, `Offer`, `Rejected`).
+   - Center summary indicator showing total applications.
+   - Color-coded stage legend with exact application count badges.
+
+4. **Fit Score vs. Response Rate Bar Chart (`client/src/components/charts/ScoreVsResponseBar.jsx`)**:
+   - Grouped bar chart correlating three ATS tailoring tiers:
+     - **Low (0–40)**
+     - **Moderate (41–70)**
+     - **High (71–100)**
+   - Displays empirical callback/interview rates across score bands.
+   - Dynamic AI insight callout: _"Higher tailoring quality correlates with 100% more callbacks."_
+
+5. **Recent Applications Audit Panel (`client/src/components/dashboard/RecentApplications.jsx`)**:
+   - Live stream of the 5 most recent job applications.
+   - Displays role title, company name, stage pill, color-coded fit score badge, and relative applied timestamp (`X days ago`).
+   - One-click navigation direct to full application dossier and CRM tabs.
+
+6. **Empty State Illustrations (`client/src/components/ui/EmptyState.jsx`)**:
+   - Custom SVG illustrations and contextual CTAs for new candidate workspaces without data:
+     - No Resumes Uploaded → Upload Resume CTA
+     - No Applications Tracked → Tailor First Application CTA
+     - No Analytics Available → Start Applying CTA
+
+### Demo Data Seeding
+
+To preview the dashboard with rich data immediately, run the automated seed script:
+
+```bash
+# Seed 24 realistic applications across 12 weeks with varied fit scores and follow-ups
+npm run seed:dashboard -w server
+```
+
+The script provisions a test account (`demo@applyforge.dev` / `Password123!`), sample resumes, sample job descriptions, and 24 distributed applications across all stages.
+
 ## Frontend Authentication Flow
 
 The client application implements a complete, modern authentication system built with React 19, React Router, React Hook Form, Zod, and Tailwind CSS.
@@ -496,7 +569,7 @@ The client application implements a complete, modern authentication system built
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Login**     | _<!-- Screenshot Placeholder: docs/screenshots/login.png -->_<br>![ApplyForge Login](https://raw.githubusercontent.com/nzaman7878/ApplyForge-Multi-Agent-Job-Application-Copilot/main/docs/screenshots/login.png)<br>_Dark-mode login form with validation and error shake animation_      |
 | **Register**  | _<!-- Screenshot Placeholder: docs/screenshots/register.png -->_<br>![ApplyForge Registration](https://raw.githubusercontent.com/nzaman7878/ApplyForge-Multi-Agent-Job-Application-Copilot/main/docs/screenshots/register.png)<br>_Real-time password length indicator and Zod validation_ |
-| **Dashboard** | _<!-- Screenshot Placeholder: docs/screenshots/dashboard.png -->_<br>![ApplyForge Dashboard](https://raw.githubusercontent.com/nzaman7878/ApplyForge-Multi-Agent-Job-Application-Copilot/main/docs/screenshots/dashboard.png)<br>_AppLayout with sidebar, Navbar, and application metrics_ |
+| **Dashboard** | _<!-- Screenshot: docs/screenshots/dashboard.png -->_<br>![ApplyForge Dashboard](https://raw.githubusercontent.com/nzaman7878/ApplyForge-Multi-Agent-Job-Application-Copilot/main/docs/screenshots/dashboard.png)<br>_Executive dashboard with Recharts velocity timeline, status donut, fit-score vs response rate, KPI cards, and recent applications_ |
 | **Tracker**   | _<!-- Screenshot: docs/screenshots/tracker_kanban.png -->_<br>![ApplyForge Tracker](https://raw.githubusercontent.com/nzaman7878/ApplyForge-Multi-Agent-Job-Application-Copilot/main/docs/screenshots/tracker_kanban.png)<br>_Kanban board with drag-and-drop stages, fit score badges, and follow-up reminder banner_ |
 
 ### Testing & Verification Suites
@@ -593,6 +666,12 @@ npm run test:follow-up-due -w server
 
 # Application Tracker Flow E2E Smoke Test (create -> move statuses -> follow-up -> delete)
 npm run test:tracker-flow -w server
+
+# Analytics & Dashboard Flow E2E Smoke Test (summary, timeline, score-vs-response, recent, follow-ups)
+npm run test:dashboard -w server
+
+# Demo Data Seeder for Dashboard & Analytics
+npm run seed:dashboard -w server
 ```
 
 

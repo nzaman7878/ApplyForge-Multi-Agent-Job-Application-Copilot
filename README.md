@@ -119,10 +119,10 @@ The frontend will be available at `http://localhost:5173` and the backend API at
 
 | Method   | Endpoint           | Access                       | Description                                                                                              |
 | -------- | ------------------ | ---------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `POST`   | `/api/resumes`     | Protected (`Bearer <token>`) | Upload and parse resume file (PDF or DOCX, up to 5MB). Extracts sections, saves to MongoDB, returns doc. |
-| `GET`    | `/api/resumes`     | Protected (`Bearer <token>`) | List all resumes belonging to the authenticated user (`id`, `name`, `uploadedAt`), sorted newest first.  |
-| `GET`    | `/api/resumes/:id` | Protected (`Bearer <token>`) | Retrieve full resume document with complete `parsedSections` (Contact, Summary, Experience, etc.).       |
-| `DELETE` | `/api/resumes/:id` | Protected (`Bearer <token>`) | Delete resume with user ownership verification and associated file cleanup on disk.                      |
+| `POST`   | `/api/resumes`     | Protected (`Bearer <token>`) | Upload and parse resume file (PDF/DOCX, up to 5MB). Handles multipart upload via Multer, uploads to Cloudinary, extracts sections, and saves doc with `cloudinaryUrl`. |
+| `GET`    | `/api/resumes`     | Protected (`Bearer <token>`) | List all resumes belonging to the authenticated user (`id`, `name`, `uploadedAt`, `cloudinaryUrl`), sorted newest first.  |
+| `GET`    | `/api/resumes/:id` | Protected (`Bearer <token>`) | Retrieve full resume document with complete `parsedSections` and `cloudinaryUrl`.                                         |
+| `DELETE` | `/api/resumes/:id` | Protected (`Bearer <token>`) | Delete resume with user ownership verification, disk cleanup, and Cloudinary asset removal.                               |
 
 ### Job Description Endpoints (`/api/jds`)
 
@@ -616,6 +616,9 @@ npm run test:get-resumes -w server
 
 # Resume delete endpoint with ownership guard (DELETE /api/resumes/:id)
 npm run test:delete-resume -w server
+
+# Multer & Cloudinary resume upload integration test
+npm run test:cloudinary -w server
 
 # JobDescription model schema and validation
 npm run test:jd-model -w server

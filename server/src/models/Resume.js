@@ -117,6 +117,16 @@ const resumeSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    cloudinaryUrl: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    cloudinaryPublicId: {
+      type: String,
+      trim: true,
+      default: '',
+    },
   },
   {
     timestamps: true,

@@ -2,6 +2,7 @@ const fs = require('fs');
 const mongoose = require('mongoose');
 const Resume = require('../models/Resume');
 const parseDocument = require('../services/parsers');
+const cloudinaryService = require('../services/cloudinary');
 const { extractSections } = parseDocument;
 
 /**
@@ -67,7 +68,26 @@ const uploadResume = async (req, res) => {
       parsedSections = {};
     }
 
-    // 5. Create and save Resume in MongoDB
+    // 5. Upload to Cloudinary if configured
+    let cloudinaryUrl = '';
+    let cloudinaryPublicId = '';
+    if (cloudinaryService.isConfigured()) {
+      try {
+        const uploadResult = await cloudinaryService.uploadResumeFile(
+          req.file.path || buffer,
+          {
+            folder: 'applyforge/resumes',
+            public_id: `${Date.now()}-${req.file.originalname.replace(/[^a-zA-Z0-9_-]/g, '_')}`,
+          }
+        );
+        cloudinaryUrl = uploadResult.secureUrl || uploadResult.url || '';
+        cloudinaryPublicId = uploadResult.publicId || '';
+      } catch (cloudErr) {
+        console.warn('Cloudinary upload warning:', cloudErr.message);
+      }
+    }
+
+    // 6. Create and save Resume in MongoDB
     const resume = new Resume({
       userId: req.user._id,
       originalFilename: req.file.originalname,
@@ -77,6 +97,8 @@ const uploadResume = async (req, res) => {
       filePath: req.file.path || '',
       fileSize: req.file.size || buffer.length,
       mimeType: req.file.mimetype || '',
+      cloudinaryUrl,
+      cloudinaryPublicId,
     });
 
     await resume.save();
@@ -111,7 +133,7 @@ const getResumes = async (req, res) => {
   try {
     const resumes = await Resume.find({ userId: req.user._id })
       .sort({ uploadedAt: -1 })
-      .select('originalFilename uploadedAt createdAt');
+      .select('originalFilename uploadedAt createdAt cloudinaryUrl');
 
     const formattedResumes = resumes.map((resume) => ({
       id: resume._id.toString(),
@@ -119,6 +141,7 @@ const getResumes = async (req, res) => {
       originalFilename: resume.originalFilename,
       uploadedAt: resume.uploadedAt,
       createdAt: resume.createdAt,
+      cloudinaryUrl: resume.cloudinaryUrl || '',
     }));
 
     if (req.query.wrap === 'true' || req.query.format === 'object') {
@@ -226,6 +249,18 @@ const deleteResume = async (req, res) => {
         console.warn(
           `Warning: Failed to delete resume file from disk (${resume.filePath}):`,
           fileErr.message
+        );
+      }
+    }
+
+    // Delete file from Cloudinary if public ID exists and service is configured
+    if (resume.cloudinaryPublicId && cloudinaryService.isConfigured()) {
+      try {
+        await cloudinaryService.deleteResumeFile(resume.cloudinaryPublicId);
+      } catch (cloudErr) {
+        console.warn(
+          `Warning: Failed to delete resume from Cloudinary (${resume.cloudinaryPublicId}):`,
+          cloudErr.message
         );
       }
     }

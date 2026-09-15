@@ -23,6 +23,12 @@ const envVarsSchema = Joi.object({
   ANTHROPIC_API_KEY: Joi.string().allow('').description('Anthropic API Key for legacy/optional support'),
   LLM_MODEL: Joi.string().default('gemini-2.5-flash').description('Default LLM Model'),
   LLM_TEMPERATURE: Joi.number().default(0.7).description('LLM Temperature setting'),
+
+  // Cloudinary Storage Configuration
+  CLOUDINARY_CLOUD_NAME: Joi.string().allow('').description('Cloudinary Cloud Name'),
+  CLOUDINARY_API_KEY: Joi.string().allow('').description('Cloudinary API Key'),
+  CLOUDINARY_API_SECRET: Joi.string().allow('').description('Cloudinary API Secret'),
+  CLOUDINARY_URL: Joi.string().allow('').description('Cloudinary URL Connection String'),
 }).unknown();
 
 const { value: envVars, error } = envVarsSchema
@@ -49,5 +55,11 @@ module.exports = {
     anthropicApiKey: envVars.ANTHROPIC_API_KEY,
     model: envVars.LLM_MODEL,
     temperature: envVars.LLM_TEMPERATURE,
+  },
+  cloudinary: {
+    cloudName: envVars.CLOUDINARY_CLOUD_NAME,
+    apiKey: envVars.CLOUDINARY_API_KEY,
+    apiSecret: envVars.CLOUDINARY_API_SECRET,
+    url: envVars.CLOUDINARY_URL,
   },
 };

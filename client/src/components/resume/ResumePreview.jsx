@@ -149,6 +149,21 @@ export default function ResumePreview({
             </button>
           </div>
 
+          {resume.cloudinaryUrl && (
+            <a
+              href={resume.cloudinaryUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-950/60 hover:bg-indigo-900/80 text-indigo-200 border border-indigo-500/30 rounded-lg text-xs font-medium transition cursor-pointer"
+              title="Open original file on Cloudinary"
+            >
+              <svg className="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+              <span>View Original</span>
+            </a>
+          )}
+
           {onClose && (
             <button
               type="button"

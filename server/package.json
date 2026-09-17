@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "node tests/auth-smoke.test.js",
+    "test": "npx --node-options=\"--experimental-vm-modules\" jest",
+    "test:unit": "npx --node-options=\"--experimental-vm-modules\" jest",
     "test:auth": "node tests/auth-smoke.test.js",
     "test:resume": "node tests/resume-model.test.js",
     "test:upload": "node tests/upload-middleware.test.js",
@@ -68,7 +69,15 @@
     "pdf-parse": "^2.4.5"
   },
   "devDependencies": {
+    "jest": "^30.5.1",
     "mongodb-memory-server": "^11.2.0",
     "supertest": "^7.2.2"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/tests/unit/**/*.test.js"
+    ],
+    "verbose": true
   }
 }

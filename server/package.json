@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "npx --node-options=\"--experimental-vm-modules\" jest",
-    "test:unit": "npx --node-options=\"--experimental-vm-modules\" jest",
+    "test:unit": "npx --node-options=\"--experimental-vm-modules\" jest tests/unit",
+    "test:integration": "npx --node-options=\"--experimental-vm-modules\" jest tests/integration",
     "test:auth": "node tests/auth-smoke.test.js",
     "test:resume": "node tests/resume-model.test.js",
     "test:upload": "node tests/upload-middleware.test.js",
@@ -76,7 +77,8 @@
   "jest": {
     "testEnvironment": "node",
     "testMatch": [
-      "**/tests/unit/**/*.test.js"
+      "**/tests/unit/**/*.test.js",
+      "**/tests/integration/**/*.test.js"
     ],
     "verbose": true
   }

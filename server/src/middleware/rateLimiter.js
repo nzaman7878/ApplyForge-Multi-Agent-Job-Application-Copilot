@@ -9,6 +9,7 @@ const loginLimiter = rateLimit({
   limit: 5, // 5 requests per 15 minutes
   standardHeaders: 'draft-7', // Return standard RateLimit-* headers
   legacyHeaders: false,
+  skip: () => process.env.NODE_ENV === 'test',
   message: {
     error: 'Too many login attempts',
     message: 'Too many login attempts from this IP, please try again after 15 minutes',

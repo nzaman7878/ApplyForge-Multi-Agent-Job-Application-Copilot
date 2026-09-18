@@ -1,13 +1,22 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
-import Home from '../pages/Home';
-import Login from '../pages/Login';
-import Register from '../pages/Register';
-import Dashboard from '../pages/Dashboard';
-import Apply from '../pages/Apply';
-import Tracker from '../pages/Tracker';
-import ApplicationDetail from '../pages/ApplicationDetail';
 import { PublicRoute, PrivateRoute } from './guards';
+import PageLoader from '../components/ui/PageLoader';
+import Home from '../pages/Home';
+
+// Route-level code splitting using React.lazy for sub-pages
+const Login = lazy(() => import('../pages/Login'));
+const Register = lazy(() => import('../pages/Register'));
+const Dashboard = lazy(() => import('../pages/Dashboard'));
+const Apply = lazy(() => import('../pages/Apply'));
+const Tracker = lazy(() => import('../pages/Tracker'));
+const ApplicationDetail = lazy(() => import('../pages/ApplicationDetail'));
+
+const withSuspense = (Component, message = 'Loading ApplyForge...') => (
+  <Suspense fallback={<PageLoader message={message} />}>
+    <Component />
+  </Suspense>
+);
 
 export const routes = [
   {
@@ -18,7 +27,7 @@ export const routes = [
     path: '/login',
     element: (
       <PublicRoute>
-        <Login />
+        {withSuspense(Login, 'Loading Sign In...')}
       </PublicRoute>
     ),
   },
@@ -26,7 +35,7 @@ export const routes = [
     path: '/register',
     element: (
       <PublicRoute>
-        <Register />
+        {withSuspense(Register, 'Loading Create Account...')}
       </PublicRoute>
     ),
   },
@@ -34,7 +43,7 @@ export const routes = [
     path: '/dashboard',
     element: (
       <PrivateRoute>
-        <Dashboard />
+        {withSuspense(Dashboard, 'Loading Analytics Dashboard...')}
       </PrivateRoute>
     ),
   },
@@ -42,7 +51,7 @@ export const routes = [
     path: '/apply',
     element: (
       <PrivateRoute>
-        <Apply />
+        {withSuspense(Apply, 'Loading Application Pipeline...')}
       </PrivateRoute>
     ),
   },
@@ -50,7 +59,7 @@ export const routes = [
     path: '/tracker',
     element: (
       <PrivateRoute>
-        <Tracker />
+        {withSuspense(Tracker, 'Loading Application Tracker...')}
       </PrivateRoute>
     ),
   },
@@ -58,7 +67,7 @@ export const routes = [
     path: '/applications/:id',
     element: (
       <PrivateRoute>
-        <ApplicationDetail />
+        {withSuspense(ApplicationDetail, 'Loading Application Details...')}
       </PrivateRoute>
     ),
   },

@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Application = require('../models/Application');
 const PipelineRun = require('../models/PipelineRun');
+const { invalidateUserAnalyticsCache } = require('../middleware/cache');
 
 /**
  * POST /api/applications
@@ -66,6 +67,8 @@ async function createApplication(req, res) {
         { applicationId: application._id, status: 'saved' }
       );
     }
+
+    invalidateUserAnalyticsCache(userId);
 
     return res.status(201).json({
       message: 'Application created successfully',
@@ -296,6 +299,8 @@ async function updateApplication(req, res) {
 
     await application.save();
 
+    invalidateUserAnalyticsCache(userId);
+
     return res.status(200).json({
       message: 'Application updated successfully',
       application,
@@ -341,6 +346,8 @@ async function deleteApplication(req, res) {
     }
 
     await Application.findByIdAndDelete(application._id);
+
+    invalidateUserAnalyticsCache(userId);
 
     return res.status(200).json({
       message: 'Application deleted successfully',

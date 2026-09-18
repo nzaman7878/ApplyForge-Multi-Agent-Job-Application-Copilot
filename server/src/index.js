@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const compression = require('compression');
 const config = require('./config/env');
 const { connectDB } = require('./config/database');
 const authRoutes = require('./routes/auth.routes');
@@ -14,6 +15,7 @@ const analyticsRoutes = require('./routes/analytics.routes');
 const app = express();
 
 // Middleware
+app.use(compression());
 app.use(express.json());
 app.use(cors());
 app.use(helmet());

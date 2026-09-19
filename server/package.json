@@ -41,6 +41,7 @@
     "test:dashboard": "node tests/dashboard-flow-smoke.test.js",
     "test:cloudinary": "node tests/cloudinary-upload.test.js",
     "seed:dashboard": "node scripts/seed-dashboard.js",
+    "start": "node src/index.js",
     "dev": "npx nodemon src/index.js"
   },
   "keywords": [],

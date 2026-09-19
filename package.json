@@ -12,7 +12,7 @@
     "test": "npm run test:server && npm run test:client",
     "test:server": "npm test -w server",
     "test:client": "npm test -w client",
-    "lint": "eslint . --ext .js,.jsx",
+    "lint": "eslint .",
     "format": "prettier --write \"**/*.{js,jsx,css,md,json}\"",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down"

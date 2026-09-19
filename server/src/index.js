@@ -15,6 +15,9 @@ const analyticsRoutes = require('./routes/analytics.routes');
 
 const app = express();
 
+// Trust reverse proxy hops (e.g. Railway, Render, Vercel, AWS ALB) for accurate IP rate limiting
+app.set('trust proxy', 1);
+
 // Security Middleware: Helmet with granular Content Security Policy (CSP)
 app.use(
   helmet({
@@ -43,9 +46,30 @@ const corsOptions = {
   origin: (origin, callback) => {
     // Allow non-browser or local tool requests without Origin header
     if (!origin) return callback(null, true);
-    if (config.corsOrigins.includes('*') || config.corsOrigins.includes(origin)) {
+
+    const normalizedOrigin = origin.replace(/\/+$/, '');
+
+    // Check direct equality or wildcard
+    if (config.corsOrigins.includes('*') || config.corsOrigins.includes(normalizedOrigin)) {
       return callback(null, true);
     }
+
+    // Support wildcard subdomains e.g. *.vercel.app or .vercel.app
+    const isAllowedPattern = config.corsOrigins.some((allowed) => {
+      if (allowed.startsWith('*.')) {
+        const rootDomain = allowed.slice(2);
+        return normalizedOrigin.endsWith(rootDomain);
+      }
+      if (allowed.startsWith('.')) {
+        return normalizedOrigin.endsWith(allowed);
+      }
+      return false;
+    });
+
+    if (isAllowedPattern) {
+      return callback(null, true);
+    }
+
     const error = new Error(`Origin ${origin} is not allowed by CORS whitelist`);
     error.status = 403;
     return callback(error);
@@ -93,6 +117,28 @@ app.use('/api/jds', jdRoutes);
 app.use('/api/pipeline', pipelineRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/analytics', analyticsRoutes);
+
+// 404 Not Found Handler for Unmatched API Routes
+app.use('/api', (req, res) => {
+  res.status(404).json({
+    error: 'Not Found',
+    message: `Cannot ${req.method} ${req.originalUrl}`,
+  });
+});
+
+// Centralized Error Handling Middleware
+app.use((err, req, res, _next) => {
+  const statusCode = err.status || err.statusCode || 500;
+  const isProd = config.env === 'production';
+  if (!isProd && statusCode === 500) {
+    console.error('Unhandled Application Error:', err);
+  }
+  res.status(statusCode).json({
+    error: err.name || 'Internal Server Error',
+    message: isProd && statusCode === 500 ? 'An unexpected server error occurred' : err.message,
+    ...(isProd ? {} : { stack: err.stack }),
+  });
+});
 
 // Start Server
 const startServer = async () => {

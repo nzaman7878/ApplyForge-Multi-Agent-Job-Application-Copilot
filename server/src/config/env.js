@@ -70,7 +70,7 @@ module.exports = {
   },
   corsOrigins: (envVars.CORS_ORIGIN || '')
     .split(',')
-    .map((origin) => origin.trim())
+    .map((origin) => origin.trim().replace(/\/+$/, ''))
     .filter(Boolean),
   rateLimitMax: envVars.RATE_LIMIT_MAX,
 };

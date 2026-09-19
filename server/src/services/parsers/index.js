@@ -1,6 +1,7 @@
 const path = require('path');
 const extractTextFromPdf = require('./pdfParser');
 const extractTextFromDocx = require('./docxParser');
+const { validateFileMagicBytes } = require('../../utils/magicBytes');
 const { cleanExtractedText } = extractTextFromPdf;
 
 const MIME_PDF = 'application/pdf';
@@ -27,11 +28,19 @@ const parseDocument = async (buffer, mimeType, filename = '', options = {}) => {
 
   // 1. PDF Routing
   if (normalizedMime === MIME_PDF || ext === '.pdf') {
+    const validation = validateFileMagicBytes(buffer, 'pdf');
+    if (!validation.isValid) {
+      throw new Error(`File signature validation failed: ${validation.reason}`);
+    }
     return extractTextFromPdf(buffer, options);
   }
 
   // 2. DOCX Routing
   if (normalizedMime === MIME_DOCX || normalizedMime === 'application/docx' || ext === '.docx') {
+    const validation = validateFileMagicBytes(buffer, 'docx');
+    if (!validation.isValid) {
+      throw new Error(`File signature validation failed: ${validation.reason}`);
+    }
     return extractTextFromDocx(buffer, options);
   }
 

@@ -29,6 +29,12 @@ const envVarsSchema = Joi.object({
   CLOUDINARY_API_KEY: Joi.string().allow('').description('Cloudinary API Key'),
   CLOUDINARY_API_SECRET: Joi.string().allow('').description('Cloudinary API Secret'),
   CLOUDINARY_URL: Joi.string().allow('').description('Cloudinary URL Connection String'),
+
+  // Security & Rate Limiting
+  CORS_ORIGIN: Joi.string()
+    .default('http://localhost:5173,http://localhost:3000,http://localhost:4173')
+    .description('Allowed CORS origins, comma-separated'),
+  RATE_LIMIT_MAX: Joi.number().default(100).description('Max requests per 15 min per IP for API'),
 }).unknown();
 
 const { value: envVars, error } = envVarsSchema
@@ -62,4 +68,9 @@ module.exports = {
     apiSecret: envVars.CLOUDINARY_API_SECRET,
     url: envVars.CLOUDINARY_URL,
   },
+  corsOrigins: (envVars.CORS_ORIGIN || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean),
+  rateLimitMax: envVars.RATE_LIMIT_MAX,
 };

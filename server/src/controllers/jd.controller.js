@@ -3,6 +3,7 @@ const JobDescription = require('../models/JobDescription');
 const parseDocument = require('../services/parsers');
 const parseJobDescription =
   parseDocument.parseJobDescription || require('../services/parsers/jdParser');
+const { scrapeJobDescription } = require('../services/scraper/jdScraper');
 
 /**
  * Create and parse a new job description from pasted text
@@ -72,24 +73,95 @@ const createJobDescription = async (req, res) => {
 };
 
 /**
- * Stub endpoint for creating a job description from a URL (stretch preview)
+ * Create and parse a new job description by scraping a job posting URL
  * POST /api/jds/from-url
- * Responds 501 Not Implemented
+ * Protected route
  */
 const createJobDescriptionFromUrl = async (req, res) => {
-  const { url } = req.body || {};
+  try {
+    const { url, company: overrideCompany, roleTitle: overrideRoleTitle } = req.body || {};
 
-  return res.status(501).json({
-    error: 'Not Implemented',
-    message:
-      'URL-to-JD scraper ingestion is currently in preview development and not yet enabled.',
-    code: 'NOT_IMPLEMENTED',
-    details: {
-      feature: 'url-scraping',
-      status: 'preview_stub',
-      targetUrl: url || null,
-    },
-  });
+    if (!url || typeof url !== 'string' || !url.trim()) {
+      return res.status(400).json({
+        error: 'Missing required field',
+        message: 'A valid URL is required',
+      });
+    }
+
+    // 1. Scrape job description content from URL
+    let scraped;
+    try {
+      scraped = await scrapeJobDescription(url.trim());
+    } catch (scrapeErr) {
+      return res.status(422).json({
+        error: 'Scrape error',
+        message: `Failed to scrape job description from the provided URL: ${scrapeErr.message}`,
+      });
+    }
+
+    if (!scraped || !scraped.rawText || scraped.rawText.trim().length < 10) {
+      return res.status(422).json({
+        error: 'Extraction error',
+        message: 'Could not extract sufficient job description text from the provided URL',
+      });
+    }
+
+    // 2. Resolve metadata (user overrides take precedence, then scraped fields, then fallbacks)
+    const company = (overrideCompany || scraped.company || 'Unknown Company').trim();
+    const roleTitle = (
+      overrideRoleTitle ||
+      scraped.roleTitle ||
+      scraped.title ||
+      'Open Position'
+    ).trim();
+    const rawText = scraped.rawText.trim();
+
+    // 3. Extract structured requirements from raw text
+    let parsedRequirements = {
+      skills: [],
+      experience: [],
+      qualifications: [],
+      niceToHave: [],
+    };
+
+    try {
+      parsedRequirements = parseJobDescription(rawText);
+    } catch (parseErr) {
+      console.warn('JD parser warning, using default structure:', parseErr.message);
+    }
+
+    // 4. Instantiate and persist JobDescription model in MongoDB
+    const jobDescription = new JobDescription({
+      userId: req.user._id,
+      company,
+      roleTitle,
+      rawText,
+      parsedRequirements,
+      source: 'url',
+      sourceUrl: url.trim(),
+      createdAt: new Date(),
+    });
+
+    await jobDescription.save();
+
+    // 5. Return formatted response (HTTP 201 Created)
+    const jdJson = jobDescription.toJSON();
+
+    return res.status(201).json({
+      ...jdJson,
+      jobDescription: jdJson,
+      metadata: {
+        board: scraped.board,
+        location: scraped.location,
+      },
+    });
+  } catch (error) {
+    console.error('Create JD from URL error:', error);
+    return res.status(500).json({
+      error: 'Internal server error',
+      message: 'Failed to create job description from URL',
+    });
+  }
 };
 
 /**

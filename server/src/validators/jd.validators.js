@@ -29,6 +29,30 @@ const createJd = [
     .withMessage('Source must be either "paste" or "url"'),
 ];
 
+/**
+ * Validation rules for scraping a job description from a URL
+ */
+const createJdFromUrl = [
+  body('url')
+    .trim()
+    .notEmpty()
+    .withMessage('URL is required')
+    .isURL({ protocols: ['http', 'https'], require_protocol: true })
+    .withMessage('A valid HTTP/HTTPS URL is required'),
+  body('company')
+    .optional()
+    .trim()
+    .isLength({ max: 150 })
+    .withMessage('Company name cannot exceed 150 characters'),
+  body('roleTitle')
+    .optional()
+    .trim()
+    .isLength({ max: 150 })
+    .withMessage('Role title cannot exceed 150 characters'),
+];
+
 module.exports = {
   createJd,
+  createJdFromUrl,
 };
+

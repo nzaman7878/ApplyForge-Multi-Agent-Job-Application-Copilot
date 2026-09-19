@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 const request = require('supertest');
+const axios = require('axios');
 
 // Set test environment configuration
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'test_jwt_secret_applyforge_123';
@@ -144,24 +145,68 @@ async function testJdScraper() {
     }
     console.log('✔ Rejected unauthenticated request with 401');
 
-    // 5.2 Authenticated stub check (expect 501 Not Implemented)
-    const stubRes = await request(app)
+    // 5.2 Validation failure check (missing URL)
+    const badRes = await request(app)
       .post('/api/jds/from-url')
       .set('Authorization', `Bearer ${token}`)
-      .send({ url: 'https://jobs.example.com/posting/123' })
-      .expect(501);
+      .send({})
+      .expect(400);
 
-    if (stubRes.body.code !== 'NOT_IMPLEMENTED') {
-      throw new Error(`Expected code NOT_IMPLEMENTED, got: ${JSON.stringify(stubRes.body)}`);
+    if (badRes.body.error !== 'Validation failed') {
+      throw new Error(`Expected Validation failed, got: ${JSON.stringify(badRes.body)}`);
     }
-    if (!stubRes.body.message.includes('preview')) {
-      throw new Error(`Expected preview message, got: ${stubRes.body.message}`);
+    console.log('✔ Rejected missing URL with 400 Validation failed');
+
+    // 5.3 Successful scrape and persistence test (expect 201 Created)
+    const originalAxiosGet = axios.get;
+    axios.get = async () => ({
+      status: 200,
+      data: `
+        <!DOCTYPE html>
+        <html>
+          <head><title>Cloud Infrastructure Engineer - Stripe</title></head>
+          <body>
+            <div id="wrapper">
+              <h1 class="app-title">Cloud Infrastructure Engineer</h1>
+              <span class="company-name">Stripe</span>
+              <div class="location">Remote - US</div>
+              <div id="content">
+                <p>Build scalable payments infrastructure.</p>
+                <h3>Requirements:</h3>
+                <ul>
+                  <li>Kubernetes, Go, and Terraform experience.</li>
+                </ul>
+              </div>
+            </div>
+          </body>
+        </html>
+      `,
+    });
+
+    try {
+      const liveRes = await request(app)
+        .post('/api/jds/from-url')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ url: 'https://boards.greenhouse.io/stripe/jobs/123456' })
+        .expect(201);
+
+      if (liveRes.body.company !== 'Stripe') {
+        throw new Error(`Expected company Stripe, got: ${liveRes.body.company}`);
+      }
+      if (liveRes.body.source !== 'url') {
+        throw new Error(`Expected source url, got: ${liveRes.body.source}`);
+      }
+      if (!liveRes.body.rawText.includes('Kubernetes, Go, and Terraform')) {
+        throw new Error('Expected requirements in rawText');
+      }
+      console.log('✔ POST /api/jds/from-url correctly scrapes, parses, and returns 201 Created:');
+      console.log(`  Created JD: ${liveRes.body.company} - ${liveRes.body.roleTitle} (source: ${liveRes.body.source})`);
+    } finally {
+      axios.get = originalAxiosGet;
     }
-    console.log('✔ Stub endpoint correctly responds with 501 Not Implemented:');
-    console.log(`  Response: ${JSON.stringify(stubRes.body)}`);
 
     console.log('\n=============================================');
-    console.log('🎉 ALL JD SCRAPER & STUB TESTS PASSED');
+    console.log('🎉 ALL JD SCRAPER & INGESTION TESTS PASSED');
     console.log('=============================================\n');
   } finally {
     if (mongoose.connection.readyState !== 0) {

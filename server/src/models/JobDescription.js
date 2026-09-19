@@ -57,6 +57,11 @@ const jobDescriptionSchema = new mongoose.Schema(
       default: 'paste',
       trim: true,
     },
+    sourceUrl: {
+      type: String,
+      default: null,
+      trim: true,
+    },
     createdAt: {
       type: Date,
       default: Date.now,

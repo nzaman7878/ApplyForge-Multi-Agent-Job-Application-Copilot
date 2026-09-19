@@ -15,10 +15,15 @@ router.post('/', auth, validate(jdValidators.createJd), jdController.createJobDe
 
 /**
  * @route   POST /api/jds/from-url
- * @desc    Scrape and create job description from URL (stretch preview stub)
+ * @desc    Scrape and create job description from URL
  * @access  Protected
  */
-router.post('/from-url', auth, jdController.createJobDescriptionFromUrl);
+router.post(
+  '/from-url',
+  auth,
+  validate(jdValidators.createJdFromUrl),
+  jdController.createJobDescriptionFromUrl
+);
 
 /**
  * @route   GET /api/jds

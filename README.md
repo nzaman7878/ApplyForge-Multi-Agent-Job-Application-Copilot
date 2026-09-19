@@ -690,4 +690,51 @@ npm run test:dashboard -w server
 npm run seed:dashboard -w server
 ```
 
+---
 
+## 🚀 Deployment Guide
+
+### Frontend Deployment (Vercel)
+
+The React SPA frontend is preconfigured for zero-friction deployment to **Vercel** with full SPA client-side routing support via [`vercel.json`](vercel.json).
+
+#### Option A: Deploy via Vercel Dashboard
+1. Go to [vercel.com](https://vercel.com) and click **"Add New Project"** → Import your GitHub repository.
+2. Under **Project Settings**:
+   - **Framework Preset**: `Vite`
+   - **Root Directory**: `client` (or leave as root `.` if using root `vercel.json`)
+   - **Build Command**: `npm run build`
+   - **Output Directory**: `dist`
+3. Under **Environment Variables**, configure:
+   | Variable | Description | Example |
+   | :--- | :--- | :--- |
+   | `VITE_API_URL` | Base URL of your deployed backend service | `https://applyforge-api.onrender.com` |
+4. Click **Deploy**. Vercel will build the bundle, apply asset caching, and handle SPA route rewrites for deep-linking (`/dashboard`, `/tracker`, `/apply`, `/applications/:id`).
+
+#### Option B: Deploy via Vercel CLI
+```bash
+# Deploy directly from client directory
+cd client
+npx vercel
+# For production deployment:
+npx vercel --prod
+```
+
+---
+
+### Backend Deployment (Render / Railway)
+
+The Express backend includes a production-hardened [`server/Dockerfile`](server/Dockerfile) with multi-stage caching, non-root execution, and built-in health monitoring.
+
+#### Render Deployment
+- Use the included [`render.yaml`](render.yaml) blueprint:
+  1. In Render Dashboard, click **New +** → **Blueprint**.
+  2. Connect your repository. Render will automatically detect `render.yaml`.
+  3. Supply the production environment variables (`MONGODB_URI`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `GEMINI_API_KEY`, Cloudinary keys, and `CORS_ORIGIN`).
+  4. Health check endpoint `/api/health` will automatically report service health.
+
+#### Railway Deployment
+- Use the included [`railway.json`](railway.json):
+  1. In Railway Dashboard, click **New Project** → **Deploy from GitHub repo**.
+  2. Railway will detect `server/Dockerfile` and configure deployment with automatic restart on failure.
+  3. Set environment variables in the Railway service settings panel.

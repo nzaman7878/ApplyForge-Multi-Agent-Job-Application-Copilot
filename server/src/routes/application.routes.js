@@ -26,6 +26,15 @@ router.get(
 // GET /api/applications/follow-ups/due — applications where nextFollowUpAt <= now
 router.get('/follow-ups/due', applicationController.getDueFollowUps);
 
+// GET /api/applications/voice/profile — aggregated user voice signals
+router.get('/voice/profile', applicationController.getVoiceProfile);
+
+// GET /api/applications/:id/edits — retrieve user edit history for application
+router.get('/:id/edits', applicationController.getApplicationEdits);
+
+// POST /api/applications/:id/edits — record user edit diffs for application
+router.post('/:id/edits', applicationController.recordApplicationEdit);
+
 // GET /api/applications/:id — full detail
 router.get('/:id', applicationController.getApplicationById);
 

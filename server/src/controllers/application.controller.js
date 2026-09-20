@@ -2,6 +2,13 @@ const mongoose = require('mongoose');
 const Application = require('../models/Application');
 const PipelineRun = require('../models/PipelineRun');
 const { invalidateUserAnalyticsCache } = require('../middleware/cache');
+const {
+  collectBulletEdits,
+  collectCoverLetterEdit,
+  recordApplicationEdits,
+  getUserEditHistory,
+  extractVoiceSignals,
+} = require('../services/voiceLearning/editCollector');
 
 /**
  * POST /api/applications
@@ -272,6 +279,20 @@ async function updateApplication(req, res) {
       });
     }
 
+    // Automatically capture diffs for voice learning if tailoredBullets or coverLetter are updated
+    const previousBullets = application.tailoredBullets || [];
+    const previousCoverLetter = application.coverLetter || '';
+
+    let generatedDiffs = [];
+    if (updates.tailoredBullets !== undefined) {
+      const bulletDiffs = collectBulletEdits(previousBullets, updates.tailoredBullets);
+      if (bulletDiffs.length > 0) generatedDiffs.push(...bulletDiffs);
+    }
+    if (updates.coverLetter !== undefined) {
+      const clDiff = collectCoverLetterEdit(previousCoverLetter, updates.coverLetter);
+      if (clDiff) generatedDiffs.push(clDiff);
+    }
+
     // Apply allowed update fields
     const allowedFields = [
       'status',
@@ -295,6 +316,17 @@ async function updateApplication(req, res) {
       if (updates[field] !== undefined) {
         application[field] = updates[field];
       }
+    }
+
+    // If diffs were generated, append to userEdits array
+    if (generatedDiffs.length > 0) {
+      const existingEdits = Array.isArray(application.userEdits)
+        ? application.userEdits
+        : application.userEdits
+          ? [application.userEdits]
+          : [];
+      application.userEdits = [...existingEdits, ...generatedDiffs];
+      application.markModified('userEdits');
     }
 
     await application.save();
@@ -396,6 +428,129 @@ async function getDueFollowUps(req, res) {
   }
 }
 
+/**
+ * GET /api/applications/:id/edits
+ * Retrieves the user edit history diffs for an application
+ */
+async function getApplicationEdits(req, res) {
+  try {
+    const { id } = req.params;
+    const userId = req.user._id.toString();
+
+    let application = null;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      application = await Application.findById(id);
+    }
+    if (!application) {
+      application = await Application.findOne({ runId: id });
+    }
+
+    if (!application) {
+      return res.status(404).json({
+        error: 'Application not found',
+        message: `No application found matching ID "${id}"`,
+      });
+    }
+
+    if (application.userId.toString() !== userId) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You do not have permission to view edits for this application',
+      });
+    }
+
+    const edits = Array.isArray(application.userEdits)
+      ? application.userEdits
+      : application.userEdits
+        ? [application.userEdits]
+        : [];
+
+    return res.status(200).json({
+      applicationId: application._id,
+      count: edits.length,
+      edits,
+    });
+  } catch (error) {
+    console.error('[ApplicationController] Error getting application edits:', error);
+    return res.status(500).json({
+      error: 'Failed to retrieve application edits',
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * POST /api/applications/:id/edits
+ * Directly records an edit diff or revision to an application
+ */
+async function recordApplicationEdit(req, res) {
+  try {
+    const { id } = req.params;
+    const userId = req.user._id.toString();
+
+    let application = null;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      application = await Application.findById(id);
+    }
+    if (!application) {
+      application = await Application.findOne({ runId: id });
+    }
+
+    if (!application) {
+      return res.status(404).json({
+        error: 'Application not found',
+        message: `No application found matching ID "${id}"`,
+      });
+    }
+
+    if (application.userId.toString() !== userId) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You do not have permission to record edits on this application',
+      });
+    }
+
+    const result = await recordApplicationEdits(application, req.body);
+
+    return res.status(200).json({
+      message: 'Edit recorded successfully',
+      newEdits: result.newEdits,
+      allEdits: result.allEdits,
+    });
+  } catch (error) {
+    console.error('[ApplicationController] Error recording application edit:', error);
+    return res.status(500).json({
+      error: 'Failed to record edit',
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * GET /api/applications/voice/profile
+ * Returns the aggregated voice learning profile and signals for the user
+ */
+async function getVoiceProfile(req, res) {
+  try {
+    const userId = req.user._id.toString();
+    const editHistory = await getUserEditHistory(userId);
+    const signals = extractVoiceSignals(editHistory);
+
+    return res.status(200).json({
+      userId,
+      historyCount: editHistory.length,
+      signals,
+      recentEdits: editHistory.slice(0, 20),
+    });
+  } catch (error) {
+    console.error('[ApplicationController] Error getting voice profile:', error);
+    return res.status(500).json({
+      error: 'Failed to retrieve voice profile',
+      message: error.message,
+    });
+  }
+}
+
 module.exports = {
   createApplication,
   getApplications,
@@ -403,5 +558,8 @@ module.exports = {
   updateApplication,
   deleteApplication,
   getDueFollowUps,
+  getApplicationEdits,
+  recordApplicationEdit,
+  getVoiceProfile,
 };
 

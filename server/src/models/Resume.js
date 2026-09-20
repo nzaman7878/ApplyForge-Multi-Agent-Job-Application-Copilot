@@ -23,6 +23,7 @@ const experienceSchema = new mongoose.Schema(
     current: { type: Boolean, default: false },
     description: { type: String, trim: true, default: '' },
     bulletPoints: [{ type: String, trim: true }],
+    bullets: [{ type: String, trim: true }],
   },
   { _id: false }
 );

@@ -68,6 +68,16 @@ const AgentState = Annotation.Root({
     default: () => null,
   }),
 
+  // Voice learning and personalization channels
+  userId: Annotation({
+    reducer: (curr, update) => (update !== undefined ? update : curr),
+    default: () => null,
+  }),
+  styleExamples: Annotation({
+    reducer: (curr, update) => (update !== undefined ? update : curr),
+    default: () => [],
+  }),
+
   // Pipeline telemetry & error channels
   status: Annotation({
     reducer: (curr, update) => (update !== undefined ? update : curr),
@@ -87,6 +97,8 @@ const AgentState = Annotation.Root({
  */
 function createInitialAgentState(params = {}) {
   return {
+    userId: params.userId || null,
+    styleExamples: Array.isArray(params.styleExamples) ? params.styleExamples : [],
     resumeSections: params.resumeSections || null,
     jdRequirements: params.jdRequirements || null,
     structuredResume: params.structuredResume || null,
@@ -114,6 +126,8 @@ const AGENT_STATE_KEYS = [
   'fitScore',
   'humanApproved',
   'userEdits',
+  'userId',
+  'styleExamples',
 ];
 
 module.exports = {

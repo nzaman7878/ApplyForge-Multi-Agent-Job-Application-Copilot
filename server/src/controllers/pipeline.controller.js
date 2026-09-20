@@ -6,6 +6,7 @@ const JobDescription = require('../models/JobDescription');
 const PipelineRun = require('../models/PipelineRun');
 const Application = require('../models/Application');
 const { createApplicationPipeline } = require('../agents/pipeline');
+const { getRecentStyleExamples } = require('../services/voiceLearning');
 
 // In-memory shared checkpointer and run registry (with MongoDB persistence backing)
 let sharedCheckpointer = new MemorySaver();
@@ -95,16 +96,29 @@ async function runPipeline(req, res) {
       });
     }
 
-    // 3. Initialize run state
+    // 3. Fetch candidate's last 10 approved edits for voice learning personalization
+    const userId = req.user ? req.user._id : null;
+    let styleExamples = [];
+    if (userId) {
+      try {
+        styleExamples = await getRecentStyleExamples(userId, 10);
+      } catch (voiceErr) {
+        console.warn('[PipelineController] Could not fetch voice learning style examples:', voiceErr.message);
+      }
+    }
+
+    // 4. Initialize run state
     const runId = crypto.randomUUID();
     const initialState = {
+      userId: userId ? userId.toString() : null,
+      styleExamples,
       resumeSections: resumeDoc.toJSON ? resumeDoc.toJSON() : resumeDoc,
       jdRequirements: jdDoc.toJSON ? jdDoc.toJSON() : jdDoc,
       humanApproved: false,
       userEdits: null,
     };
 
-    // 4. Invoke pipeline execution up to __human_interrupt__ checkpoint
+    // 5. Invoke pipeline execution up to __human_interrupt__ checkpoint
     const currentPipeline = getPipelineInstance();
     const config = { configurable: { thread_id: runId } };
 

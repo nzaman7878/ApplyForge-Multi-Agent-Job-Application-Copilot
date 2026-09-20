@@ -61,7 +61,11 @@ function formatStructuredResume(rawSections) {
     const endDate = exp.endDate || '';
     const current = Boolean(exp.current);
     const description = exp.description || '';
-    const rawBullets = Array.isArray(exp.bulletPoints) ? exp.bulletPoints : [];
+    const rawBullets = Array.isArray(exp.bulletPoints)
+      ? exp.bulletPoints
+      : Array.isArray(exp.bullets)
+      ? exp.bullets
+      : [];
     const bulletPoints = [];
 
     rawBullets.forEach((bullet, bIdx) => {

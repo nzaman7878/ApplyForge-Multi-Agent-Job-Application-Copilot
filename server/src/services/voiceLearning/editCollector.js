@@ -412,6 +412,98 @@ const extractVoiceSignals = (editHistory = []) => {
   };
 };
 
+/**
+ * Retrieve the most recent approved user edits as style examples for tailoring personalization.
+ * Fetches up to `limit` edits from the user's saved/applied applications, prioritizing bullet edits.
+ *
+ * @param {string|mongoose.Types.ObjectId} userId
+ * @param {number} [limit=10]
+ * @returns {Promise<Array<object>>}
+ */
+const getRecentStyleExamples = async (userId, limit = 10) => {
+  if (!userId) return [];
+
+  const applications = await Application.find({
+    userId,
+    userEdits: { $exists: true, $ne: null },
+  })
+    .select('_id company roleTitle status userEdits appliedAt updatedAt')
+    .sort({ updatedAt: -1, appliedAt: -1 })
+    .lean();
+
+  const rawEdits = [];
+
+  for (const app of applications) {
+    if (Array.isArray(app.userEdits)) {
+      for (const edit of app.userEdits) {
+        const orig = (edit.original || '').trim();
+        const edited = (edit.edited || '').trim();
+        // Only include non-trivial edits where candidate modified the phrasing
+        if (orig && edited && orig !== edited) {
+          rawEdits.push({
+            id: edit.id || crypto.randomUUID(),
+            applicationId: app._id.toString(),
+            company: app.company || '',
+            roleTitle: app.roleTitle || '',
+            status: app.status || 'applied',
+            type: edit.type || 'bullet',
+            field: edit.field || 'tailoredBullets',
+            index: edit.index !== undefined ? edit.index : null,
+            original: orig,
+            edited: edited,
+            diff: edit.diff || null,
+            appliedAt: edit.appliedAt || app.updatedAt || app.appliedAt || new Date(),
+          });
+        }
+      }
+    }
+  }
+
+  // Sort descending by applied timestamp
+  rawEdits.sort((a, b) => new Date(b.appliedAt || 0) - new Date(a.appliedAt || 0));
+
+  // Prioritize bullet edits over general notes if mixed
+  const bulletEdits = rawEdits.filter((e) => e.type === 'bullet');
+  const otherEdits = rawEdits.filter((e) => e.type !== 'bullet');
+
+  const combined = [...bulletEdits, ...otherEdits];
+  return combined.slice(0, Math.max(1, limit));
+};
+
+/**
+ * Formats an array of style examples into a clean prompt block for LLM system prompts.
+ *
+ * @param {Array<object>} styleExamples
+ * @returns {string} Formatted prompt section or empty string
+ */
+const formatStyleExamplesForPrompt = (styleExamples = []) => {
+  if (!Array.isArray(styleExamples) || styleExamples.length === 0) {
+    return '';
+  }
+
+  const formattedItems = styleExamples
+    .slice(0, 10)
+    .map((ex, idx) => {
+      const orig = (ex.original || '').trim();
+      const rev = (ex.edited || '').trim();
+      const roleInfo = [ex.roleTitle, ex.company].filter(Boolean).join(' at ');
+      const context = roleInfo ? ` (${roleInfo})` : '';
+      return `[Style Example ${idx + 1}]${context}\n- Original Draft: "${orig}"\n- Candidate's Approved Revision: "${rev}"`;
+    })
+    .join('\n\n');
+
+  return `
+CANDIDATE'S PERSONAL VOICE & STYLE EXAMPLES (FROM RECENT APPROVED EDITS):
+The candidate has customized and approved past AI-generated bullet points to reflect their authentic voice, level of detail, and preferred terminology. Use these examples to guide your tailoring:
+
+${formattedItems}
+
+VOICE & TONE GUIDELINES DERIVED FROM CANDIDATE EDITS:
+1. Emulate the candidate's action verb preferences, active tone, and vocabulary choice seen in their revisions.
+2. Mirror their preferred degree of conciseness and metric placement.
+3. Preserve strictly truthful facts from the original bullet while writing in this learned voice.`.trim();
+};
+
 module.exports = {
   computeTextDiff,
   collectBulletEdits,
@@ -421,4 +513,6 @@ module.exports = {
   extractVoiceSignals,
   tokenizeWords,
   extractActionVerb,
+  getRecentStyleExamples,
+  formatStyleExamplesForPrompt,
 };

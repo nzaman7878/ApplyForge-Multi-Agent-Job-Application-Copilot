@@ -1,6 +1,10 @@
 const { SystemMessage, HumanMessage } = require('@langchain/core/messages');
 const { getLLM } = require('../../config/llm');
 const { formatStructuredResume, formatStructuredJD } = require('./parserNode');
+const {
+  getRecentStyleExamples,
+  formatStyleExamplesForPrompt,
+} = require('../../services/voiceLearning');
 
 /**
  * System prompt enforcing:
@@ -23,6 +27,21 @@ MANDATORY RULES:
    - "reasoning": A concise sentence explaining which keywords or impact metrics were highlighted and why.
 
 Output ONLY valid JSON. No conversational filler or preamble.`;
+
+/**
+ * Builds the complete tailoring system prompt, incorporating past approved user edits
+ * as concrete style examples when available.
+ *
+ * @param {Array<object>} [styleExamples=[]] - Recent approved edits from candidate history
+ * @returns {string} Fully articulated system prompt
+ */
+function buildTailoringSystemPrompt(styleExamples = []) {
+  const examplesSection = formatStyleExamplesForPrompt(styleExamples);
+  if (!examplesSection) {
+    return TAILORING_SYSTEM_PROMPT;
+  }
+  return `${TAILORING_SYSTEM_PROMPT}\n\n${examplesSection}`;
+}
 
 /**
  * Constructs the human prompt providing target JD criteria, candidate bullets, and optional user instructions.
@@ -163,10 +182,29 @@ function parseTailoredBullets(rawOutput, originalBullets = []) {
  *
  * @param {Array} resumeBullets
  * @param {Object} structuredJD
+ * @param {Array} [styleExamples=[]] - Optional style examples from candidate edit history
  * @returns {Array<Object>}
  */
-function tailorBulletsHeuristic(resumeBullets, structuredJD) {
+function tailorBulletsHeuristic(resumeBullets, structuredJD, styleExamples = []) {
   const targetSkills = structuredJD?.requiredSkills || [];
+
+  // Identify preferred action verbs from user's approved edit history
+  let candidateVerb = null;
+  if (Array.isArray(styleExamples) && styleExamples.length > 0) {
+    for (const ex of styleExamples) {
+      if (ex.diff && ex.diff.editedVerb) {
+        candidateVerb = ex.diff.editedVerb;
+        break;
+      }
+      if (ex.edited) {
+        const firstWord = ex.edited.trim().split(/\s+/)[0].replace(/[^a-zA-Z]/g, '');
+        if (firstWord && firstWord.length > 2) {
+          candidateVerb = firstWord;
+          break;
+        }
+      }
+    }
+  }
 
   return resumeBullets.map((bullet, idx) => {
     const orig = bullet.original || bullet.text || (typeof bullet === 'string' ? bullet : '');
@@ -184,9 +222,17 @@ function tailorBulletsHeuristic(resumeBullets, structuredJD) {
     let tailored = orig;
     let reasoning = 'Refined phrasing for impact while strictly preserving factual accomplishments.';
 
+    if (candidateVerb && idx === 0) {
+      const words = orig.split(' ');
+      if (words.length > 1 && words[0].toLowerCase() !== candidateVerb.toLowerCase()) {
+        tailored = `${candidateVerb} ${words.slice(1).join(' ')}`;
+        reasoning = `Aligned with candidate's personal action verb preference "${candidateVerb}" while preserving factual accomplishments.`;
+      }
+    }
+
     if (relevantSkills.length > 0 && idx === 0) {
       const skillToHighlight = relevantSkills[0];
-      tailored = `${orig.replace(/\.$/, '')}, applying ${skillToHighlight} best practices.`;
+      tailored = `${tailored.replace(/\.$/, '')}, applying ${skillToHighlight} best practices.`;
       reasoning = `Emphasized target skill "${skillToHighlight}" to enhance ATS match while preserving candidate voice.`;
     }
 
@@ -202,8 +248,9 @@ function tailorBulletsHeuristic(resumeBullets, structuredJD) {
  * Resume Tailoring Agent node for LangGraph pipeline.
  *
  * Reads structuredResume and structuredJD from state.
- * Employs Gemini LLM with the tailoring system prompt to rewrite bullets.
- * Outputs: { tailoredBullets, status: 'tailored' }
+ * Fetches last 10 approved edits as style examples if not already present.
+ * Employs Gemini LLM with the tailored system prompt to rewrite bullets.
+ * Outputs: { tailoredBullets, status: 'tailored', styleExamples }
  *
  * @param {Object} state - Current LangGraph AgentState
  * @param {Object} [options={}] - Optional injection (e.g., llm client for tests)
@@ -217,6 +264,23 @@ async function resumeTailoringNode(state, options = {}) {
     state.structuredJD || formatStructuredJD(state.jdRequirements || {});
   const userEdits = state.userEdits || null;
 
+  // Retrieve or fetch recent approved style examples before tailoring
+  let styleExamples = Array.isArray(options.styleExamples)
+    ? options.styleExamples
+    : Array.isArray(state.styleExamples) && state.styleExamples.length > 0
+    ? state.styleExamples
+    : [];
+
+  const userId = options.userId || state.userId || null;
+  if (styleExamples.length === 0 && userId) {
+    try {
+      styleExamples = await getRecentStyleExamples(userId, 10);
+    } catch (fetchErr) {
+      console.warn('[ResumeTailoringNode] Failed to fetch user style examples:', fetchErr.message);
+      styleExamples = [];
+    }
+  }
+
   const resumeBullets = structuredResume.allBulletPoints || [];
 
   // If no bullets exist in the resume, return empty array gracefully
@@ -224,6 +288,7 @@ async function resumeTailoringNode(state, options = {}) {
     return {
       tailoredBullets: [],
       status: 'tailored',
+      styleExamples,
     };
   }
 
@@ -236,25 +301,28 @@ async function resumeTailoringNode(state, options = {}) {
     } catch {
       // If API key is not configured and fallback allowed, use heuristic
       if (options.allowFallback !== false) {
-        const fallbackBullets = tailorBulletsHeuristic(resumeBullets, structuredJD);
+        const fallbackBullets = tailorBulletsHeuristic(resumeBullets, structuredJD, styleExamples);
         return {
           tailoredBullets: fallbackBullets,
           status: 'tailored',
+          styleExamples,
         };
       }
       throw new Error('GEMINI_API_KEY is not configured for resumeTailoringNode');
     }
   }
 
-  // Build prompt
+  // Build prompts with personalized system prompt
   const humanPrompt = buildTailoringPrompt({
     resumeBullets,
     jobDescription: structuredJD,
     userEdits,
   });
 
+  const systemPrompt = buildTailoringSystemPrompt(styleExamples);
+
   const messages = [
-    new SystemMessage(TAILORING_SYSTEM_PROMPT),
+    new SystemMessage(systemPrompt),
     new HumanMessage(humanPrompt),
   ];
 
@@ -266,14 +334,16 @@ async function resumeTailoringNode(state, options = {}) {
     return {
       tailoredBullets,
       status: 'tailored',
+      styleExamples,
     };
   } catch (err) {
     if (options.allowFallback !== false) {
       console.warn(`[ResumeTailoringNode] LLM invocation encountered an error (${err.message}). Using heuristic fallback.`);
-      const fallbackBullets = tailorBulletsHeuristic(resumeBullets, structuredJD);
+      const fallbackBullets = tailorBulletsHeuristic(resumeBullets, structuredJD, styleExamples);
       return {
         tailoredBullets: fallbackBullets,
         status: 'tailored',
+        styleExamples,
       };
     }
     throw err;
@@ -283,7 +353,10 @@ async function resumeTailoringNode(state, options = {}) {
 module.exports = {
   resumeTailoringNode,
   TAILORING_SYSTEM_PROMPT,
+  buildTailoringSystemPrompt,
+  formatStyleExamplesForPrompt,
   buildTailoringPrompt,
   parseTailoredBullets,
   tailorBulletsHeuristic,
 };
+

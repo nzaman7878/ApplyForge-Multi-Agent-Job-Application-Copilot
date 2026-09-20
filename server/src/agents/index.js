@@ -7,6 +7,8 @@ const {
 const {
   resumeTailoringNode,
   TAILORING_SYSTEM_PROMPT,
+  buildTailoringSystemPrompt,
+  formatStyleExamplesForPrompt,
   buildTailoringPrompt,
   parseTailoredBullets,
   tailorBulletsHeuristic,
@@ -54,6 +56,8 @@ module.exports = {
   formatStructuredJD,
   resumeTailoringNode,
   TAILORING_SYSTEM_PROMPT,
+  buildTailoringSystemPrompt,
+  formatStyleExamplesForPrompt,
   buildTailoringPrompt,
   parseTailoredBullets,
   tailorBulletsHeuristic,

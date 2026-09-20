@@ -27,6 +27,11 @@ const createJd = [
     .optional()
     .isIn(['paste', 'url'])
     .withMessage('Source must be either "paste" or "url"'),
+  body('sourceUrl')
+    .optional()
+    .trim()
+    .isURL({ protocols: ['http', 'https'], require_protocol: true })
+    .withMessage('Source URL must be a valid HTTP or HTTPS URL'),
 ];
 
 /**
@@ -49,6 +54,10 @@ const createJdFromUrl = [
     .trim()
     .isLength({ max: 150 })
     .withMessage('Role title cannot exceed 150 characters'),
+  body('preview')
+    .optional()
+    .isBoolean()
+    .withMessage('Preview must be a boolean'),
 ];
 
 module.exports = {

@@ -168,6 +168,50 @@ describe('JD Scraper Ingestion Endpoint (POST /api/jds/from-url) Integration Tes
       expect(res.body.source).toBe('url');
     });
 
+    it('should return extracted details in preview mode without creating a document in database (200)', async () => {
+      const mockHtml = `
+        <!DOCTYPE html>
+        <html>
+          <head><title>Cloud Platform Engineer - Netflix</title></head>
+          <body>
+            <main>
+              <h1>Senior Cloud Platform Engineer</h1>
+              <p>Netflix is hiring for streaming platform resilience.</p>
+              <p>Key skills required: Go, AWS, Chaos Engineering, Spinnaker, Kubernetes.</p>
+            </main>
+          </body>
+        </html>
+      `;
+
+      axios.get.mockResolvedValueOnce({
+        status: 200,
+        data: mockHtml,
+      });
+
+      const initialCount = await JobDescription.countDocuments({ userId: user._id });
+
+      const res = await request(app)
+        .post('/api/jds/from-url')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          url: 'https://jobs.netflix.com/jobs/98765',
+          company: 'Netflix, Inc.',
+          preview: true,
+        })
+        .expect(200);
+
+      expect(res.body.success).toBe(true);
+      expect(res.body.preview).toBe(true);
+      expect(res.body.company).toBe('Netflix, Inc.');
+      expect(res.body.roleTitle).toBe('Senior Cloud Platform Engineer');
+      expect(res.body.rawText).toContain('streaming platform resilience');
+      expect(res.body.rawText).toContain('Chaos Engineering');
+
+      // Ensure no new MongoDB document was created
+      const finalCount = await JobDescription.countDocuments({ userId: user._id });
+      expect(finalCount).toBe(initialCount);
+    });
+
     it('should handle remote scraper failures gracefully with 422', async () => {
       const networkError = new Error('getaddrinfo ENOTFOUND invalid-job-site-999.org');
       axios.get.mockRejectedValueOnce(networkError);

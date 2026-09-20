@@ -51,6 +51,7 @@ const createJobDescription = async (req, res) => {
       rawText: rawText.trim(),
       parsedRequirements,
       source: source === 'url' ? 'url' : 'paste',
+      sourceUrl: req.body.sourceUrl || null,
       createdAt: new Date(),
     });
 
@@ -79,7 +80,12 @@ const createJobDescription = async (req, res) => {
  */
 const createJobDescriptionFromUrl = async (req, res) => {
   try {
-    const { url, company: overrideCompany, roleTitle: overrideRoleTitle } = req.body || {};
+    const {
+      url,
+      company: overrideCompany,
+      roleTitle: overrideRoleTitle,
+      preview,
+    } = req.body || {};
 
     if (!url || typeof url !== 'string' || !url.trim()) {
       return res.status(400).json({
@@ -103,6 +109,20 @@ const createJobDescriptionFromUrl = async (req, res) => {
       return res.status(422).json({
         error: 'Extraction error',
         message: 'Could not extract sufficient job description text from the provided URL',
+      });
+    }
+
+    // If preview requested, return extracted metadata directly without persisting
+    if (preview === true || req.query.preview === 'true') {
+      return res.status(200).json({
+        success: true,
+        preview: true,
+        company: (overrideCompany || scraped.company || '').trim(),
+        roleTitle: (overrideRoleTitle || scraped.roleTitle || scraped.title || '').trim(),
+        rawText: scraped.rawText.trim(),
+        board: scraped.board,
+        location: scraped.location,
+        url: url.trim(),
       });
     }
 

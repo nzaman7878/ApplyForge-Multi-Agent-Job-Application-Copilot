@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ApplyForge Copilot</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <!-- Header -->
+    <header class="popup-header">
+      <div class="brand">
+        <div class="brand-icon">⚡</div>
+        <div class="brand-text">
+          <h1>ApplyForge</h1>
+          <span class="brand-subtitle">Job Copilot</span>
+        </div>
+      </div>
+      <button id="settings-toggle-btn" class="icon-btn" title="Settings">⚙️</button>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="popup-main">
+      <!-- Status Banner -->
+      <div id="status-banner" class="status-banner status-loading">
+        <span class="status-dot"></span>
+        <span id="status-text">Scanning active page for job posting...</span>
+      </div>
+
+      <!-- Job Card (Visible when job is detected) -->
+      <div id="job-card" class="job-card hidden">
+        <div class="job-header">
+          <div class="job-title-row">
+            <h2 id="job-title" class="job-title">Senior Full Stack Engineer</h2>
+            <span id="job-source" class="source-badge">LinkedIn</span>
+          </div>
+          <div class="job-meta">
+            <span id="job-company" class="job-company">🏢 Stripe</span>
+            <span id="job-location" class="job-location">📍 San Francisco, CA</span>
+          </div>
+        </div>
+
+        <div class="job-description-preview">
+          <p id="job-desc-snippet" class="job-desc-text"></p>
+          <span id="job-desc-count" class="desc-count"></span>
+        </div>
+
+        <div class="job-actions">
+          <button id="import-btn" class="primary-btn">
+            ⚡ Import to ApplyForge
+          </button>
+        </div>
+      </div>
+
+      <!-- Empty State (When no job is detected) -->
+      <div id="empty-state" class="empty-state hidden">
+        <div class="empty-icon">🔍</div>
+        <h3>No Job Detected</h3>
+        <p>Navigate to any job posting on <strong>LinkedIn</strong>, <strong>Naukri</strong>, <strong>Greenhouse</strong>, or <strong>Lever</strong> to capture details with one click.</p>
+        <button id="rescan-btn" class="secondary-btn">↻ Rescan Page</button>
+      </div>
+
+      <!-- Settings Panel (Toggled via settings button) -->
+      <div id="settings-panel" class="settings-panel hidden">
+        <h3>Configuration</h3>
+        <div class="form-group">
+          <label for="server-url-input">ApplyForge Server URL</label>
+          <input type="text" id="server-url-input" placeholder="http://localhost:5000" />
+        </div>
+        <div class="form-group">
+          <label for="api-token-input">API Token (Optional)</label>
+          <input type="password" id="api-token-input" placeholder="Bearer jwt_token..." />
+        </div>
+        <div class="settings-actions">
+          <button id="save-settings-btn" class="primary-btn">Save Settings</button>
+          <button id="close-settings-btn" class="secondary-btn">Cancel</button>
+        </div>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="popup-footer">
+      <a id="open-dashboard-link" href="#" class="footer-link">Open ApplyForge Dashboard ↗</a>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,53 @@
+{
+  "manifest_version": 3,
+  "name": "ApplyForge - Job Application Copilot",
+  "version": "1.0.0",
+  "description": "One-click job description capture from LinkedIn, Naukri, and top job boards into ApplyForge for AI-powered resume and cover letter tailoring.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "ApplyForge Copilot",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting"
+  ],
+  "host_permissions": [
+    "*://*.linkedin.com/*",
+    "*://*.naukri.com/*",
+    "*://boards.greenhouse.io/*",
+    "*://jobs.lever.co/*",
+    "*://localhost/*",
+    "*://127.0.0.1/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.linkedin.com/jobs/*",
+        "*://*.linkedin.com/job-postings/*",
+        "*://*.naukri.com/job-listings*",
+        "*://*.naukri.com/*-jobs*",
+        "*://boards.greenhouse.io/*",
+        "*://jobs.lever.co/*"
+      ],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}

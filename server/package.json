@@ -40,6 +40,7 @@
     "test:analytics": "node tests/analytics-endpoints.test.js",
     "test:dashboard": "node tests/dashboard-flow-smoke.test.js",
     "test:cloudinary": "node tests/cloudinary-upload.test.js",
+    "test:extension": "npx --node-options=\"--experimental-vm-modules\" jest tests/unit/browserExtension.test.js",
     "seed:dashboard": "node scripts/seed-dashboard.js",
     "start": "node src/index.js",
     "dev": "npx nodemon src/index.js"

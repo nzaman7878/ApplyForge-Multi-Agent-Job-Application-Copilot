@@ -1,9 +1,13 @@
 /**
- * ApplyForge Chrome Extension - Content Script
- * Detects and extracts structured job descriptions on LinkedIn, Naukri, Greenhouse, and Lever.
+ * ApplyForge Chrome Extension - Content Script (Phase 106)
+ * Selects and captures full or user-highlighted job description text on job boards
+ * (LinkedIn, Naukri, Greenhouse, Lever, Indeed, and generic portals).
  */
 
 (function () {
+  let lastCapturedJob = null;
+  let lastTargetElement = null;
+
   /**
    * Helper to clean and normalize whitespace from text
    * @param {string} text
@@ -26,6 +30,33 @@
   }
 
   /**
+   * Helper to count words in a string
+   * @param {string} text
+   * @returns {number}
+   */
+  function countWords(text) {
+    if (!text || typeof text !== 'string') return 0;
+    const words = text.trim().match(/\S+/g);
+    return words ? words.length : 0;
+  }
+
+  /**
+   * Retrieves any text currently selected/highlighted by user on the active page
+   * @returns {string}
+   */
+  function getSelectedText() {
+    try {
+      if (typeof window !== 'undefined' && window.getSelection) {
+        const sel = window.getSelection();
+        return sel ? sel.toString().trim() : '';
+      }
+    } catch {
+      // Ignore in non-browser environments
+    }
+    return '';
+  }
+
+  /**
    * Helper to query first matching selector in a document/node
    * @param {Document|Element} root
    * @param {string[]} selectors
@@ -38,10 +69,89 @@
         const el = root.querySelector(sel);
         if (el) return el;
       } catch {
-        // Ignore invalid selector syntax in test environments
+        // Ignore selector syntax error
       }
     }
     return null;
+  }
+
+  /**
+   * Cleans and formats raw HTML into structured text with newlines & bullets
+   * @param {string} html
+   * @returns {string}
+   */
+  function htmlToFormattedText(html) {
+    if (!html || typeof html !== 'string') return '';
+    let str = html;
+    str = str.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+    str = str.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
+    str = str.replace(/<button\b[^<]*(?:(?!<\/button>)<[^<]*)*<\/button>/gi, '');
+    str = str.replace(/<svg\b[^<]*(?:(?!<\/svg>)<[^<]*)*<\/svg>/gi, '');
+    str = str.replace(/<li[^>]*>/gi, '\n• ');
+    str = str.replace(/<\/(p|div|h[1-6]|tr|li)>/gi, '\n');
+    str = str.replace(/<br\s*[\/]?>/gi, '\n');
+    str = str.replace(/<[^>]+>/g, ' ');
+    str = str.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+    return str
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .join('\n')
+      .trim();
+  }
+
+  /**
+   * Formats HTML container text into clean paragraphs & bullet points
+   * while stripping UI buttons, scripts, and navigation clutter.
+   *
+   * @param {Element} container
+   * @returns {string} Clean formatted text
+   */
+  function extractFormattedText(container) {
+    if (!container) return '';
+    if (typeof container === 'string') return cleanText(container);
+
+    // If container has innerHTML, use htmlToFormattedText
+    if (container.innerHTML && typeof container.innerHTML === 'string') {
+      const formatted = htmlToFormattedText(container.innerHTML);
+      if (formatted) return formatted;
+    }
+
+    if (container.cloneNode && typeof container.cloneNode === 'function') {
+      try {
+        const clone = container.cloneNode(true);
+        const toRemove = clone.querySelectorAll(
+          'script, style, svg, button, .show-more-less-html__button, .artdeco-button, .jobs-description__footer-button, [aria-label*="Show more"], [aria-label*="Show less"]'
+        );
+        toRemove.forEach((el) => el.remove());
+
+        const blockElements = clone.querySelectorAll('p, div, li, h1, h2, h3, h4, h5, h6, tr');
+        blockElements.forEach((el) => {
+          if (el.tagName && el.tagName.toLowerCase() === 'li') {
+            const content = el.textContent.trim();
+            if (!content.startsWith('•') && !content.startsWith('-') && !content.startsWith('*')) {
+              el.textContent = `\n• ${content}`;
+            } else {
+              el.textContent = `\n${content}`;
+            }
+          } else {
+            el.textContent = `${el.textContent}\n`;
+          }
+        });
+
+        const raw = clone.textContent || '';
+        return raw
+          .split('\n')
+          .map((line) => line.trim())
+          .filter(Boolean)
+          .join('\n')
+          .trim();
+      } catch {
+        // Fall back to textContent
+      }
+    }
+
+    return cleanText(container.textContent || '');
   }
 
   /**
@@ -74,7 +184,6 @@
               : item.jobLocation?.address?.addressLocality || '';
 
           const rawDesc = item.description || '';
-          // Strip HTML tags from description if needed
           const textDesc = rawDesc.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 
           return {
@@ -86,6 +195,7 @@
             description: textDesc,
             url: getCurrentUrl(),
             source: 'json-ld',
+            element: script,
           };
         }
       }
@@ -141,7 +251,7 @@
     const title = cleanText(titleEl?.textContent || '');
     const company = cleanText(compEl?.textContent || '');
     const location = cleanText(locEl?.textContent || '');
-    const description = cleanText(descEl?.textContent || '');
+    const description = extractFormattedText(descEl);
 
     if (title || description) {
       return {
@@ -153,6 +263,7 @@
         description,
         url: getCurrentUrl(),
         source: 'linkedin.com',
+        element: descEl || titleEl,
       };
     }
 
@@ -204,7 +315,7 @@
     const title = cleanText(titleEl?.textContent || '');
     const company = cleanText(compEl?.textContent || '');
     const location = cleanText(locEl?.textContent || '');
-    const description = cleanText(descEl?.textContent || '');
+    const description = extractFormattedText(descEl);
 
     if (title || description) {
       return {
@@ -216,6 +327,7 @@
         description,
         url: getCurrentUrl(),
         source: 'naukri.com',
+        element: descEl || titleEl,
       };
     }
 
@@ -228,12 +340,10 @@
    * @returns {object|null}
    */
   function detectGreenhouseOrLever(doc = document) {
-    // Greenhouse selectors
     const ghTitle = queryAny(doc, ['.app-title', '#header h1', 'h1.app-title']);
     const ghCompany = queryAny(doc, ['.company-name', '#header .company-name']);
     const ghDesc = queryAny(doc, ['#content', '#main-content', '.content-body']);
 
-    // Lever selectors
     const leverTitle = queryAny(doc, ['.posting-headline h2', 'h2.posting-headline']);
     const leverCompany = queryAny(doc, ['.main-header-logo img[alt]', '.main-header-text']);
     const leverDesc = queryAny(doc, ['[data-qa="job-description"]', '.posting-page .section-wrapper']);
@@ -245,9 +355,10 @@
         title: cleanText(ghTitle?.textContent || ''),
         company: cleanText(ghCompany?.textContent || ''),
         location: cleanText(doc.querySelector('.location')?.textContent || ''),
-        description: cleanText(ghDesc?.textContent || ''),
+        description: extractFormattedText(ghDesc),
         url: getCurrentUrl(),
         source: 'greenhouse.io',
+        element: ghDesc || ghTitle,
       };
     }
 
@@ -258,9 +369,10 @@
         title: cleanText(leverTitle?.textContent || ''),
         company: cleanText(leverCompany?.getAttribute?.('alt') || leverCompany?.textContent || ''),
         location: cleanText(doc.querySelector('.posting-categories .location')?.textContent || ''),
-        description: cleanText(leverDesc?.textContent || ''),
+        description: extractFormattedText(leverDesc),
         url: getCurrentUrl(),
         source: 'lever.co',
+        element: leverDesc || leverTitle,
       };
     }
 
@@ -268,54 +380,129 @@
   }
 
   /**
-   * Master extraction function identifying current host and executing appropriate detector
+   * Master extraction function identifying current host and executing appropriate detector.
+   * Incorporates user text selection if available.
+   *
    * @param {Document} doc
-   * @returns {object} Extracted job details or detected: false
+   * @param {object} [options={}] - { useSelection: boolean }
+   * @returns {object} Extracted job details with word/char counters
    */
-  function detectJob(doc = typeof document !== 'undefined' ? document : null) {
+  function detectJob(doc = typeof document !== 'undefined' ? document : null, options = {}) {
     if (!doc) {
       return { detected: false, message: 'Document object not available' };
     }
 
     const host = (typeof window !== 'undefined' ? window.location?.hostname : '') || '';
+    let result = null;
 
     // 1. LinkedIn
     if (host.includes('linkedin.com')) {
-      const liJob = detectLinkedInJob(doc);
-      if (liJob) return liJob;
+      result = detectLinkedInJob(doc);
     }
 
     // 2. Naukri
-    if (host.includes('naukri.com')) {
-      const naukriJob = detectNaukriJob(doc);
-      if (naukriJob) return naukriJob;
+    if (!result && host.includes('naukri.com')) {
+      result = detectNaukriJob(doc);
     }
 
     // 3. Greenhouse or Lever
-    if (host.includes('greenhouse.io') || host.includes('lever.co')) {
-      const ghJob = detectGreenhouseOrLever(doc);
-      if (ghJob) return ghJob;
+    if (!result && (host.includes('greenhouse.io') || host.includes('lever.co'))) {
+      result = detectGreenhouseOrLever(doc);
     }
 
-    // 4. Try JSON-LD on any page
-    const jsonLdJob = detectJsonLdJob(doc);
-    if (jsonLdJob) return jsonLdJob;
+    // 4. Try JSON-LD
+    if (!result) {
+      result = detectJsonLdJob(doc);
+    }
 
-    // 5. Try all heuristics as fallback
-    const fallbackLi = detectLinkedInJob(doc);
-    if (fallbackLi) return fallbackLi;
+    // 5. Fallback across all heuristics
+    if (!result) result = detectLinkedInJob(doc);
+    if (!result) result = detectNaukriJob(doc);
+    if (!result) result = detectGreenhouseOrLever(doc);
 
-    const fallbackNaukri = detectNaukriJob(doc);
-    if (fallbackNaukri) return fallbackNaukri;
+    // Check user selection
+    const selectedText = getSelectedText();
+    const hasSelection = Boolean(selectedText && selectedText.length > 10);
 
-    const fallbackGh = detectGreenhouseOrLever(doc);
-    if (fallbackGh) return fallbackGh;
+    if (result && result.detected) {
+      // Remember target element for visual highlight
+      lastTargetElement = result.element || null;
+
+      // If user specified useSelection or if description was empty but selection exists
+      const finalDescription = options.useSelection && hasSelection
+        ? selectedText
+        : result.description || selectedText || '';
+
+      const captured = {
+        ...result,
+        description: finalDescription,
+        fullDescription: result.description || '',
+        selectedText,
+        hasSelection,
+        charCount: finalDescription.length,
+        wordCount: countWords(finalDescription),
+        capturedAt: new Date().toISOString(),
+      };
+
+      // Strip DOM element reference for serialization
+      delete captured.element;
+
+      lastCapturedJob = captured;
+
+      // Cache to chrome.storage.local if available
+      if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+        chrome.storage.local.set({ activeCapturedJob: captured }).catch(() => {});
+      }
+
+      return captured;
+    }
+
+    // If no full container detected, but user highlighted text, create a selection job
+    if (hasSelection) {
+      const captured = {
+        detected: true,
+        platform: 'selection',
+        title: cleanText(doc.title || 'Selected Job Posting'),
+        company: '',
+        location: '',
+        description: selectedText,
+        fullDescription: selectedText,
+        selectedText,
+        hasSelection: true,
+        charCount: selectedText.length,
+        wordCount: countWords(selectedText),
+        url: getCurrentUrl(),
+        source: 'user-selection',
+        capturedAt: new Date().toISOString(),
+      };
+
+      lastCapturedJob = captured;
+      return captured;
+    }
 
     return {
       detected: false,
       url: getCurrentUrl(),
       message: 'No job description pattern detected on this page.',
     };
+  }
+
+  /**
+   * Highlights the captured job description element on the page with a glowing pulse outline
+   * @param {Element} [element]
+   */
+  function highlightCapturedElement(element = lastTargetElement) {
+    if (!element || typeof element.scrollIntoView !== 'function') return;
+
+    try {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      element.classList.add('applyforge-highlight-pulse');
+      setTimeout(() => {
+        element.classList.remove('applyforge-highlight-pulse');
+      }, 3000);
+    } catch {
+      // Ignore DOM animation error
+    }
   }
 
   /**
@@ -333,11 +520,11 @@
       <div class="applyforge-badge-content">
         <div class="applyforge-badge-icon">⚡</div>
         <div class="applyforge-badge-info">
-          <span class="applyforge-badge-title">ApplyForge Detected</span>
-          <span class="applyforge-badge-role">${job.title ? job.title.slice(0, 24) + (job.title.length > 24 ? '...' : '') : 'Job Posting'}</span>
+          <span class="applyforge-badge-title">ApplyForge Captured</span>
+          <span class="applyforge-badge-role">${job.title ? job.title.slice(0, 22) + (job.title.length > 22 ? '...' : '') : 'Job Posting'}</span>
         </div>
         <button id="applyforge-badge-action-btn" class="applyforge-badge-btn" title="Send to ApplyForge">
-          Tailor Resume
+          Send to ApplyForge
         </button>
         <button id="applyforge-badge-close-btn" class="applyforge-badge-close" title="Dismiss">&times;</button>
       </div>
@@ -345,7 +532,6 @@
 
     document.body.appendChild(badge);
 
-    // Attach click handlers
     const actionBtn = badge.querySelector('#applyforge-badge-action-btn');
     if (actionBtn) {
       actionBtn.addEventListener('click', () => {
@@ -355,10 +541,10 @@
             { action: 'SAVE_JOB', job },
             (response) => {
               if (response && response.success) {
-                actionBtn.textContent = '✓ Saved!';
+                actionBtn.textContent = '✓ Sent to ApplyForge!';
                 setTimeout(() => {
                   badge.remove();
-                }, 2000);
+                }, 2500);
               } else {
                 actionBtn.textContent = 'Open Copilot';
               }
@@ -392,15 +578,32 @@
       setTimeout(initDetection, 1000);
     }
 
-    // Listen for runtime messages from background service worker or popup
+    // Listen for runtime messages from popup or background service worker
     if (typeof chrome !== 'undefined' && chrome.runtime?.onMessage) {
       chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-        if (request.action === 'DETECT_JOB') {
-          const currentJob = detectJob(document);
-          sendResponse({ success: true, job: currentJob });
-        } else if (request.action === 'PING') {
+        // 1. CAPTURE_JD (Phase 106 primary action)
+        if (request.action === 'CAPTURE_JD' || request.action === 'DETECT_JOB') {
+          const freshJob = detectJob(document, { useSelection: request.useSelection });
+          sendResponse({ success: true, job: freshJob });
+        }
+
+        // 2. GET_SELECTED_TEXT
+        else if (request.action === 'GET_SELECTED_TEXT') {
+          const sel = getSelectedText();
+          sendResponse({ success: true, selectedText: sel, hasSelection: sel.length > 0 });
+        }
+
+        // 3. HIGHLIGHT_JD
+        else if (request.action === 'HIGHLIGHT_JD') {
+          highlightCapturedElement();
+          sendResponse({ success: true });
+        }
+
+        // 4. PING
+        else if (request.action === 'PING') {
           sendResponse({ status: 'ok', domain: window.location.hostname });
         }
+
         return true;
       });
     }
@@ -409,12 +612,17 @@
   // Export for unit tests
   const exportsObj = {
     cleanText,
+    countWords,
+    getSelectedText,
+    extractFormattedText,
     detectJob,
     detectLinkedInJob,
     detectNaukriJob,
     detectGreenhouseOrLever,
     detectJsonLdJob,
+    highlightCapturedElement,
     injectApplyForgeBadge,
+    htmlToFormattedText,
   };
 
   if (typeof module !== 'undefined' && module.exports) {

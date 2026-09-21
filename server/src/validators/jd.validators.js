@@ -25,10 +25,10 @@ const createJd = [
     .withMessage('Job description text must contain at least 10 characters'),
   body('source')
     .optional()
-    .isIn(['paste', 'url'])
-    .withMessage('Source must be either "paste" or "url"'),
+    .isIn(['paste', 'url', 'extension'])
+    .withMessage('Source must be "paste", "url", or "extension"'),
   body('sourceUrl')
-    .optional()
+    .optional({ checkFalsy: true })
     .trim()
     .isURL({ protocols: ['http', 'https'], require_protocol: true })
     .withMessage('Source URL must be a valid HTTP or HTTPS URL'),

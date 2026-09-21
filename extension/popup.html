@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ApplyForge Copilot</title>
+  <title>ApplyForge Copilot - JD Capture</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
@@ -17,7 +17,10 @@
           <span class="brand-subtitle">Job Copilot</span>
         </div>
       </div>
-      <button id="settings-toggle-btn" class="icon-btn" title="Settings">⚙️</button>
+      <div class="header-actions">
+        <button id="rescan-header-btn" class="icon-btn" title="Refresh & Capture JD">↻</button>
+        <button id="settings-toggle-btn" class="icon-btn" title="Settings">⚙️</button>
+      </div>
     </header>
 
     <!-- Main Content Area -->
@@ -28,52 +31,91 @@
         <span id="status-text">Scanning active page for job posting...</span>
       </div>
 
-      <!-- Job Card (Visible when job is detected) -->
+      <!-- Job Card (Visible when job is captured) -->
       <div id="job-card" class="job-card hidden">
+        <!-- Role & Company Info -->
         <div class="job-header">
           <div class="job-title-row">
-            <h2 id="job-title" class="job-title">Senior Full Stack Engineer</h2>
+            <input type="text" id="job-title-input" class="editable-title-input" placeholder="Role Title..." value="Senior Full Stack Engineer" />
             <span id="job-source" class="source-badge">LinkedIn</span>
           </div>
-          <div class="job-meta">
-            <span id="job-company" class="job-company">🏢 Stripe</span>
-            <span id="job-location" class="job-location">📍 San Francisco, CA</span>
+          <div class="job-meta-row">
+            <input type="text" id="job-company-input" class="editable-meta-input" placeholder="Company..." value="Stripe" />
+            <input type="text" id="job-location-input" class="editable-meta-input" placeholder="Location..." value="San Francisco, CA" />
           </div>
         </div>
 
-        <div class="job-description-preview">
-          <p id="job-desc-snippet" class="job-desc-text"></p>
-          <span id="job-desc-count" class="desc-count"></span>
+        <!-- Captured JD Section -->
+        <div class="captured-jd-section">
+          <div class="captured-jd-header">
+            <div class="source-tabs">
+              <button id="tab-full-jd" class="source-tab active">Full JD</button>
+              <button id="tab-selection-jd" class="source-tab hidden">Selected Text</button>
+            </div>
+            <div class="captured-stats">
+              <span id="job-word-count" class="stat-pill">0 words</span>
+              <span id="job-char-count" class="stat-pill">0 chars</span>
+            </div>
+          </div>
+
+          <!-- Captured JD Text Box -->
+          <div class="jd-textarea-wrapper">
+            <textarea id="job-desc-textarea" class="jd-textarea" placeholder="Captured job description will appear here..."></textarea>
+          </div>
+
+          <!-- Quick Text Tools -->
+          <div class="text-tools-row">
+            <button id="highlight-on-page-btn" class="text-tool-btn" title="Highlight this section on the live page">👁️ Highlight on Page</button>
+            <button id="copy-jd-btn" class="text-tool-btn" title="Copy captured JD to clipboard">📋 Copy Text</button>
+            <button id="capture-selection-btn" class="text-tool-btn hidden" title="Use highlighted text on page">✨ Use Selection</button>
+          </div>
         </div>
 
+        <!-- Primary Action: Send to ApplyForge -->
         <div class="job-actions">
-          <button id="import-btn" class="primary-btn">
-            ⚡ Import to ApplyForge
+          <button id="send-to-applyforge-btn" class="primary-btn">
+            ⚡ Send to ApplyForge
           </button>
+        </div>
+
+        <!-- Success Details Card (Hidden until sent) -->
+        <div id="sent-success-card" class="success-card hidden">
+          <div class="success-icon">✓</div>
+          <div class="success-details">
+            <h4>Job Description Sent!</h4>
+            <p>Saved to ApplyForge and ready for AI resume & cover letter tailoring.</p>
+            <a id="view-in-applyforge-link" href="#" class="studio-link" target="_blank">
+              Open in Tailoring Studio ↗
+            </a>
+          </div>
         </div>
       </div>
 
       <!-- Empty State (When no job is detected) -->
       <div id="empty-state" class="empty-state hidden">
         <div class="empty-icon">🔍</div>
-        <h3>No Job Detected</h3>
-        <p>Navigate to any job posting on <strong>LinkedIn</strong>, <strong>Naukri</strong>, <strong>Greenhouse</strong>, or <strong>Lever</strong> to capture details with one click.</p>
-        <button id="rescan-btn" class="secondary-btn">↻ Rescan Page</button>
+        <h3>No Job Posting Detected</h3>
+        <p>Open any job posting on <strong>LinkedIn</strong>, <strong>Naukri</strong>, <strong>Greenhouse</strong>, or <strong>Lever</strong>.</p>
+        <div class="empty-state-actions">
+          <button id="rescan-btn" class="secondary-btn">↻ Rescan Page</button>
+          <button id="capture-highlight-empty-btn" class="secondary-btn">✨ Capture Highlighted Text</button>
+        </div>
       </div>
 
       <!-- Settings Panel (Toggled via settings button) -->
       <div id="settings-panel" class="settings-panel hidden">
-        <h3>Configuration</h3>
+        <h3>ApplyForge Configuration</h3>
         <div class="form-group">
-          <label for="server-url-input">ApplyForge Server URL</label>
+          <label for="server-url-input">Backend Server URL</label>
           <input type="text" id="server-url-input" placeholder="http://localhost:5000" />
         </div>
         <div class="form-group">
           <label for="api-token-input">API Token (Optional)</label>
-          <input type="password" id="api-token-input" placeholder="Bearer jwt_token..." />
+          <input type="password" id="api-token-input" placeholder="Bearer JWT token for user account..." />
         </div>
         <div class="settings-actions">
           <button id="save-settings-btn" class="primary-btn">Save Settings</button>
+          <button id="test-connection-btn" class="secondary-btn">Test Connection</button>
           <button id="close-settings-btn" class="secondary-btn">Cancel</button>
         </div>
       </div>

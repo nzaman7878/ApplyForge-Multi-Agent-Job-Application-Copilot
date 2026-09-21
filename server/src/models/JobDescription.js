@@ -51,8 +51,8 @@ const jobDescriptionSchema = new mongoose.Schema(
     source: {
       type: String,
       enum: {
-        values: ['paste', 'url'],
-        message: '{VALUE} is not a supported JD source (must be "paste" or "url")',
+        values: ['paste', 'url', 'extension'],
+        message: '{VALUE} is not a supported JD source (must be "paste", "url", or "extension")',
       },
       default: 'paste',
       trim: true,

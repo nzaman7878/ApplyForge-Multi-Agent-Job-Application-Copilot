@@ -207,4 +207,153 @@ describe('Phase 105 Browser Extension Scaffold Tests', () => {
       expect(backgroundWorker.isSupportedJobUrl(null)).toBe(false);
     });
   });
+
+  describe('Phase 106 Content Script JD Capture & Text Formatting', () => {
+    const contentScript = require('../../../extension/content.js');
+
+    it('should accurately calculate word counts with countWords', () => {
+      expect(contentScript.countWords('Hello world')).toBe(2);
+      expect(contentScript.countWords('  Frontend   Engineer with   React,   TypeScript &  Node.js  ')).toBe(7);
+      expect(contentScript.countWords('')).toBe(0);
+      expect(contentScript.countWords(null)).toBe(0);
+    });
+
+    it('should safely extract selected text using getSelectedText', () => {
+      const selected = contentScript.getSelectedText();
+      expect(typeof selected).toBe('string');
+      expect(selected).toBe('');
+    });
+
+    it('should extract formatted text preserving bullet points and paragraphs', () => {
+      // Simulate DOM element with innerHTML
+      const mockElement = {
+        innerHTML: '<h3>About the Role</h3><p>We are hiring a Senior Engineer.</p><ul><li>5+ years React</li><li>Strong Node.js</li></ul>',
+        querySelectorAll: () => [],
+        textContent: 'About the Role We are hiring a Senior Engineer. 5+ years React Strong Node.js',
+      };
+
+      const formatted = contentScript.extractFormattedText(mockElement);
+      expect(formatted).toContain('About the Role');
+      expect(formatted).toContain('We are hiring a Senior Engineer.');
+      expect(formatted).toContain('• 5+ years React');
+      expect(formatted).toContain('• Strong Node.js');
+    });
+
+    it('should strip boilerplate button labels like Show more', () => {
+      const mockElement = {
+        innerHTML: '<p>Job description text here.</p><button>Show more</button>',
+        querySelectorAll: () => [],
+      };
+
+      const formatted = contentScript.extractFormattedText(mockElement);
+      expect(formatted).toContain('Job description text here.');
+      expect(formatted).not.toContain('Show more');
+    });
+
+    it('should produce structured capture payload with wordCount and charCount', () => {
+      const fakeDoc = {
+        querySelector: (sel) => {
+          if (sel.includes('job-details-jobs-unified-top-card__job-title')) {
+            return { textContent: 'Full Stack Tech Lead' };
+          }
+          if (sel.includes('job-details-jobs-unified-top-card__company-name')) {
+            return { textContent: 'Figma' };
+          }
+          if (sel === '#job-details') {
+            return {
+              innerHTML: '<p>Looking for a Full Stack Lead to architect high-scale web collaboration engines.</p>',
+              querySelectorAll: () => [],
+            };
+          }
+          return null;
+        },
+      };
+
+      const job = contentScript.detectJob(fakeDoc);
+      expect(job.detected).toBe(true);
+      expect(job.title).toBe('Full Stack Tech Lead');
+      expect(job.company).toBe('Figma');
+      expect(job.fullDescription).toContain('Full Stack Lead');
+      expect(job.wordCount).toBeGreaterThan(5);
+      expect(job.charCount).toBeGreaterThan(20);
+      expect(job.capturedAt).toBeDefined();
+    });
+
+    it('should handle highlightCapturedElement gracefully without crashing', () => {
+      let scrolled = false;
+      let addedClass = null;
+
+      const mockTarget = {
+        scrollIntoView: (opts) => {
+          scrolled = true;
+          expect(opts.behavior).toBe('smooth');
+        },
+        classList: {
+          add: (cls) => {
+            addedClass = cls;
+          },
+          remove: () => {},
+        },
+      };
+
+      contentScript.highlightCapturedElement(mockTarget);
+      expect(scrolled).toBe(true);
+      expect(addedClass).toBe('applyforge-highlight-pulse');
+    });
+  });
+
+  describe('Phase 106 Popup UI & Capture Controller', () => {
+    const popupController = require('../../../extension/popup.js');
+    const popupHtmlPath = path.join(EXTENSION_DIR, 'popup.html');
+    let popupHtml;
+
+    beforeAll(() => {
+      popupHtml = fs.readFileSync(popupHtmlPath, 'utf8');
+    });
+
+    it('should include the Send to ApplyForge button with correct ID and text', () => {
+      expect(popupHtml).toContain('id="send-to-applyforge-btn"');
+      expect(popupHtml).toContain('Send to ApplyForge');
+    });
+
+    it('should include JD textarea and character/word counters', () => {
+      expect(popupHtml).toContain('id="job-desc-textarea"');
+      expect(popupHtml).toContain('id="job-word-count"');
+      expect(popupHtml).toContain('id="job-char-count"');
+    });
+
+    it('should include Full JD and Selected Text tabs', () => {
+      expect(popupHtml).toContain('id="tab-full-jd"');
+      expect(popupHtml).toContain('id="tab-selection-jd"');
+    });
+
+    it('should include on-page highlighting and copy text buttons', () => {
+      expect(popupHtml).toContain('id="highlight-on-page-btn"');
+      expect(popupHtml).toContain('id="copy-jd-btn"');
+    });
+
+    it('should export calculateWordCount in popup.js', () => {
+      expect(popupController.calculateWordCount).toBeDefined();
+      expect(popupController.calculateWordCount('Senior Frontend React Developer')).toBe(4);
+      expect(popupController.calculateWordCount('')).toBe(0);
+    });
+
+    it('should handle renderJobCard for undetected jobs cleanly', () => {
+      expect(() => {
+        popupController.renderJobCard(null);
+        popupController.renderJobCard({ detected: false });
+      }).not.toThrow();
+    });
+  });
+
+  describe('Phase 106 Backend /api/jd Route & Model Compatibility', () => {
+    it('should allow extension as a valid source in JobDescription model schema', () => {
+      const JobDescription = require('../../src/models/JobDescription');
+      const sourceEnum = JobDescription.schema.path('source').enumValues;
+      expect(sourceEnum).toContain('extension');
+      expect(sourceEnum).toContain('paste');
+      expect(sourceEnum).toContain('url');
+    });
+  });
 });
+

@@ -100,3 +100,25 @@
 .applyforge-badge-close:hover {
   color: #f1f5f9;
 }
+
+/**
+ * Visual Selection Outline for Captured Job Description Elements
+ */
+.applyforge-highlight-pulse {
+  outline: 3px solid #6366f1 !important;
+  outline-offset: 4px !important;
+  box-shadow: 0 0 25px rgba(99, 102, 241, 0.4) !important;
+  border-radius: 8px !important;
+  transition: all 0.3s ease-in-out !important;
+  animation: applyforge-pulse 1.2s infinite alternate !important;
+}
+
+@keyframes applyforge-pulse {
+  from {
+    box-shadow: 0 0 10px rgba(99, 102, 241, 0.3);
+  }
+  to {
+    box-shadow: 0 0 30px rgba(99, 102, 241, 0.7);
+  }
+}
+

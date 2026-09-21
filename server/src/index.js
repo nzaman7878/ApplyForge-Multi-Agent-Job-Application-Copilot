@@ -114,6 +114,7 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/resumes', resumeRoutes);
 app.use('/api/jds', jdRoutes);
+app.use('/api/jd', jdRoutes);
 app.use('/api/pipeline', pipelineRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/analytics', analyticsRoutes);

@@ -79,10 +79,13 @@ async function sendJobToApplyForge(job) {
     const payload = {
       company: job.company || 'Detected Company',
       roleTitle: job.title || 'Detected Role',
-      rawText: job.description || `${job.title} at ${job.company}`,
-      sourceUrl: job.url || '',
-      source: job.platform || 'extension',
+      rawText: job.description || `${job.title || 'Job'} at ${job.company || 'Company'}`,
+      source: 'extension',
     };
+
+    if (job.url && typeof job.url === 'string' && (job.url.startsWith('http://') || job.url.startsWith('https://'))) {
+      payload.sourceUrl = job.url;
+    }
 
     const response = await fetch(endpoint, {
       method: 'POST',

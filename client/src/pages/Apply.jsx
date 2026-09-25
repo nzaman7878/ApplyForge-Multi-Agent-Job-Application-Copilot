@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useDispatch, useSelector } from 'react-redux';
@@ -43,6 +43,8 @@ const WIZARD_STEPS = [
 
 export default function Apply() {
   const dispatch = useDispatch();
+  const [searchParams] = useSearchParams();
+  const queryJdId = searchParams.get('jdId');
 
   // Wizard state from Redux store
   const currentStep = useSelector(selectCurrentStep);
@@ -87,7 +89,7 @@ export default function Apply() {
     }
   }, [selectedResume, selectedJd, setValue]);
 
-  // Fetch saved JDs once on mount
+  // Fetch saved JDs on mount or when redirected with query param
   useEffect(() => {
     let isMounted = true;
 
@@ -96,13 +98,37 @@ export default function Apply() {
       try {
         const res = await api.get('/api/jds');
         const list = Array.isArray(res.data) ? res.data : res.data.jds || [];
-        if (isMounted) {
-          setSavedJds(list);
-          // If JDs exist and none selected in Redux, optionally select latest
-          if (list.length > 0 && !selectedJd) {
-            dispatch(setSelectedJd(list[0]));
-            setValue('jobDescriptionId', list[0].id || list[0]._id, { shouldValidate: true });
+        if (!isMounted) return;
+
+        setSavedJds(list);
+
+        // If a specific JD ID was passed via query parameter (e.g. from Chrome Extension)
+        if (queryJdId) {
+          const matched = list.find((j) => (j.id || j._id) === queryJdId);
+          if (matched) {
+            dispatch(setSelectedJd(matched));
+            setValue('jobDescriptionId', matched.id || matched._id, { shouldValidate: true });
+            setJdInputMode('saved');
+            toast.success(`Job Description for "${matched.roleTitle || 'Role'}" imported from extension!`);
+          } else {
+            // Fetch individually in case it's newly created or not in the initial list
+            try {
+              const singleRes = await api.get(`/api/jds/${queryJdId}`);
+              const singleJd = singleRes.data?.jobDescription || singleRes.data;
+              if (singleJd && isMounted) {
+                dispatch(setSelectedJd(singleJd));
+                setValue('jobDescriptionId', singleJd.id || singleJd._id, { shouldValidate: true });
+                setSavedJds((prev) => [singleJd, ...prev.filter((j) => (j.id || j._id) !== queryJdId)]);
+                setJdInputMode('saved');
+                toast.success(`Job Description for "${singleJd.roleTitle || 'Role'}" imported from extension!`);
+              }
+            } catch (err) {
+              console.warn('Could not fetch query param JD:', err);
+            }
           }
+        } else if (list.length > 0 && !selectedJd) {
+          dispatch(setSelectedJd(list[0]));
+          setValue('jobDescriptionId', list[0].id || list[0]._id, { shouldValidate: true });
         }
       } catch (err) {
         console.error('Failed to load job descriptions:', err);
@@ -118,7 +144,7 @@ export default function Apply() {
     return () => {
       isMounted = false;
     };
-  }, []); // Run once on mount
+  }, [queryJdId, dispatch, setValue]);
 
   // Sync selected resume with Redux & RHF
   const handleSelectResume = useCallback(

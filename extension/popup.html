@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ApplyForge Copilot - JD Capture</title>
+  <title>ApplyForge Copilot - JD Capture & Apply</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
@@ -19,9 +19,20 @@
       </div>
       <div class="header-actions">
         <button id="rescan-header-btn" class="icon-btn" title="Refresh & Capture JD">↻</button>
-        <button id="settings-toggle-btn" class="icon-btn" title="Settings">⚙️</button>
+        <button id="settings-toggle-btn" class="icon-btn" title="Settings & Auth">⚙️</button>
       </div>
     </header>
+
+    <!-- Authentication Status Bar -->
+    <div id="auth-status-bar" class="auth-bar auth-unauthenticated">
+      <div class="auth-bar-left">
+        <span id="auth-indicator-dot" class="auth-dot dot-offline"></span>
+        <span id="auth-user-label" class="auth-user-label">Not connected to ApplyForge</span>
+      </div>
+      <div class="auth-bar-actions">
+        <button id="auth-action-btn" class="auth-action-link" type="button">Sign In</button>
+      </div>
+    </div>
 
     <!-- Main Content Area -->
     <main class="popup-main">
@@ -76,6 +87,7 @@
           <button id="send-to-applyforge-btn" class="primary-btn">
             ⚡ Send to ApplyForge
           </button>
+          <p class="action-subtext">Posts JD to ApplyForge and opens the Apply Wizard with this JD pre-filled.</p>
         </div>
 
         <!-- Success Details Card (Hidden until sent) -->
@@ -83,9 +95,9 @@
           <div class="success-icon">✓</div>
           <div class="success-details">
             <h4>Job Description Sent!</h4>
-            <p>Saved to ApplyForge and ready for AI resume & cover letter tailoring.</p>
+            <p id="sent-success-message">Saved to ApplyForge. Opening the Apply Wizard with your JD pre-filled...</p>
             <a id="view-in-applyforge-link" href="#" class="studio-link" target="_blank">
-              Open in Tailoring Studio ↗
+              Open in Apply Wizard ↗
             </a>
           </div>
         </div>
@@ -102,17 +114,57 @@
         </div>
       </div>
 
-      <!-- Settings Panel (Toggled via settings button) -->
+      <!-- Settings & Authentication Panel (Toggled via settings button) -->
       <div id="settings-panel" class="settings-panel hidden">
-        <h3>ApplyForge Configuration</h3>
-        <div class="form-group">
-          <label for="server-url-input">Backend Server URL</label>
-          <input type="text" id="server-url-input" placeholder="http://localhost:5000" />
+        <div class="settings-panel-header">
+          <h3>ApplyForge Authentication & Config</h3>
+          <button id="close-settings-x-btn" class="close-x-btn">&times;</button>
         </div>
-        <div class="form-group">
-          <label for="api-token-input">API Token (Optional)</label>
-          <input type="password" id="api-token-input" placeholder="Bearer JWT token for user account..." />
+
+        <!-- Quick Login Section -->
+        <div class="settings-section">
+          <div class="section-title">Account Sign In</div>
+          <div class="form-group">
+            <label for="login-email-input">Email Address</label>
+            <input type="email" id="login-email-input" placeholder="candidate@example.com" />
+          </div>
+          <div class="form-group">
+            <label for="login-password-input">Password</label>
+            <input type="password" id="login-password-input" placeholder="••••••••" />
+          </div>
+          <div class="auth-buttons-row">
+            <button id="login-submit-btn" class="primary-btn small-btn">Sign In to ApplyForge</button>
+            <button id="auth-signout-btn" class="secondary-btn small-btn hidden">Sign Out</button>
+          </div>
+          <div id="login-status-msg" class="login-feedback hidden"></div>
         </div>
+
+        <!-- Direct API Token Section -->
+        <div class="settings-section">
+          <div class="section-title">Or Enter ApplyForge JWT Token</div>
+          <div class="form-group">
+            <label for="api-token-input">JWT Bearer Token</label>
+            <input type="password" id="api-token-input" placeholder="Bearer eyJhbGciOi..." />
+          </div>
+          <div class="auth-buttons-row">
+            <button id="verify-token-btn" class="secondary-btn small-btn">Verify Token</button>
+            <button id="sync-tab-token-btn" class="secondary-btn small-btn" title="Sync auth from active ApplyForge browser tab">⚡ Sync from Tab</button>
+          </div>
+        </div>
+
+        <!-- Server URLs Configuration -->
+        <div class="settings-section">
+          <div class="section-title">Connection Endpoints</div>
+          <div class="form-group">
+            <label for="server-url-input">API Backend URL</label>
+            <input type="text" id="server-url-input" placeholder="http://localhost:5000" />
+          </div>
+          <div class="form-group">
+            <label for="frontend-url-input">Web App Frontend URL</label>
+            <input type="text" id="frontend-url-input" placeholder="http://localhost:5173" />
+          </div>
+        </div>
+
         <div class="settings-actions">
           <button id="save-settings-btn" class="primary-btn">Save Settings</button>
           <button id="test-connection-btn" class="secondary-btn">Test Connection</button>

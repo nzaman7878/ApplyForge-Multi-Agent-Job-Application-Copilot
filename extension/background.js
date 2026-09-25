@@ -1,27 +1,67 @@
 /**
  * ApplyForge Chrome Extension - Background Service Worker (MV3)
- * Handles tab monitoring, badge updates, storage configuration, and API synchronization.
+ * Handles tab monitoring, badge updates, storage configuration,
+ * JWT authentication, and Apply wizard API integration.
  */
 
 const DEFAULT_CONFIG = {
   serverUrl: 'http://localhost:5000',
+  frontendUrl: 'http://localhost:5173',
   apiToken: '',
+  user: null,
 };
 
 /**
  * Helper to get extension configuration from Chrome storage
- * @returns {Promise<{ serverUrl: string, apiToken: string }>}
+ * @returns {Promise<{ serverUrl: string, frontendUrl: string, apiToken: string, user: object|null }>}
  */
 async function getConfig() {
-  if (typeof chrome !== 'undefined' && chrome.storage?.sync) {
-    try {
-      const stored = await chrome.storage.sync.get(DEFAULT_CONFIG);
-      return { ...DEFAULT_CONFIG, ...stored };
-    } catch {
-      return DEFAULT_CONFIG;
+  if (typeof chrome !== 'undefined') {
+    if (chrome.storage?.sync) {
+      try {
+        const stored = await chrome.storage.sync.get(DEFAULT_CONFIG);
+        return { ...DEFAULT_CONFIG, ...stored };
+      } catch {
+        // Fall back to local storage
+      }
+    }
+    if (chrome.storage?.local) {
+      try {
+        const stored = await chrome.storage.local.get(DEFAULT_CONFIG);
+        return { ...DEFAULT_CONFIG, ...stored };
+      } catch {
+        return DEFAULT_CONFIG;
+      }
     }
   }
   return DEFAULT_CONFIG;
+}
+
+/**
+ * Helper to save extension configuration to Chrome storage
+ * @param {object} newConfig
+ * @returns {Promise<boolean>}
+ */
+async function saveConfig(newConfig) {
+  if (typeof chrome !== 'undefined') {
+    if (chrome.storage?.sync) {
+      try {
+        await chrome.storage.sync.set(newConfig);
+        return true;
+      } catch {
+        // Fall back to local
+      }
+    }
+    if (chrome.storage?.local) {
+      try {
+        await chrome.storage.local.set(newConfig);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+  }
+  return false;
 }
 
 /**
@@ -36,7 +76,7 @@ function isSupportedJobUrl(url) {
     lower.includes('linkedin.com/jobs') ||
     lower.includes('linkedin.com/job-postings') ||
     lower.includes('naukri.com/job-listings') ||
-    lower.includes('naukri.com') && lower.includes('-jobs') ||
+    (lower.includes('naukri.com') && lower.includes('-jobs')) ||
     lower.includes('boards.greenhouse.io') ||
     lower.includes('jobs.lever.co')
   );
@@ -59,22 +99,123 @@ function updateTabBadge(tabId, isJobPage) {
 }
 
 /**
- * Posts extracted job data to ApplyForge backend server
- * @param {object} job
- * @returns {Promise<{ success: boolean, data?: object, error?: string }>}
+ * Verifies JWT authentication token against the ApplyForge backend
+ * @param {string} token
+ * @param {string} [serverUrl]
+ * @returns {Promise<{ authenticated: boolean, user?: object, error?: string }>}
  */
-async function sendJobToApplyForge(job) {
+async function verifyAuthToken(token, serverUrl = DEFAULT_CONFIG.serverUrl) {
+  if (!token) {
+    return { authenticated: false, error: 'No token provided' };
+  }
+
+  try {
+    const endpoint = `${serverUrl.replace(/\/+$/, '')}/api/auth/me`;
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      return {
+        authenticated: false,
+        status: response.status,
+        error: 'Invalid or expired JWT token',
+      };
+    }
+
+    const data = await response.json();
+    return {
+      authenticated: true,
+      user: data.user || data,
+    };
+  } catch (err) {
+    return {
+      authenticated: false,
+      error: `Network error verifying token: ${err.message}`,
+    };
+  }
+}
+
+/**
+ * Authenticates user credentials with ApplyForge and stores JWT in extension storage
+ * @param {string} email
+ * @param {string} password
+ * @param {string} [serverUrl]
+ * @returns {Promise<{ success: boolean, token?: string, user?: object, error?: string }>}
+ */
+async function loginWithCredentials(email, password, serverUrl = DEFAULT_CONFIG.serverUrl) {
+  if (!email || !password) {
+    return { success: false, error: 'Email and password are required' };
+  }
+
+  try {
+    const endpoint = `${serverUrl.replace(/\/+$/, '')}/api/auth/login`;
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: data.message || data.error || `Login failed with status ${response.status}`,
+      };
+    }
+
+    const token = data.token || data.accessToken;
+    const user = data.user || null;
+
+    if (token) {
+      await saveConfig({ apiToken: token, user });
+    }
+
+    return {
+      success: true,
+      token,
+      user,
+    };
+  } catch (err) {
+    return {
+      success: false,
+      error: `Network error logging in: ${err.message}`,
+    };
+  }
+}
+
+/**
+ * Posts extracted job data to ApplyForge backend server with JWT authentication,
+ * and formats redirect URL to the Apply wizard.
+ *
+ * @param {object} job
+ * @param {object} [options={}]
+ * @param {boolean} [options.redirect=true]
+ * @returns {Promise<{ success: boolean, data?: object, createdId?: string, redirectUrl?: string, error?: string, requiresAuth?: boolean }>}
+ */
+async function sendJobToApplyForge(job, options = {}) {
   try {
     const config = await getConfig();
-    const endpoint = `${config.serverUrl.replace(/\/+$/, '')}/api/jd`;
 
+    // Check if ApplyForge JWT is present in extension storage
+    if (!config.apiToken) {
+      return {
+        success: false,
+        requiresAuth: true,
+        error: 'Authentication required: please log in or save your ApplyForge JWT in extension settings.',
+      };
+    }
+
+    const endpoint = `${config.serverUrl.replace(/\/+$/, '')}/api/jd`;
     const headers = {
       'Content-Type': 'application/json',
+      'Authorization': `Bearer ${config.apiToken}`,
     };
-
-    if (config.apiToken) {
-      headers['Authorization'] = `Bearer ${config.apiToken}`;
-    }
 
     const payload = {
       company: job.company || 'Detected Company',
@@ -93,18 +234,49 @@ async function sendJobToApplyForge(job) {
       body: JSON.stringify(payload),
     });
 
+    if (response.status === 401) {
+      return {
+        success: false,
+        requiresAuth: true,
+        error: 'ApplyForge session has expired or JWT token is invalid. Please sign in again.',
+      };
+    }
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       return {
         success: false,
-        error: errorData.message || `Server responded with status ${response.status}`,
+        error: errorData.message || errorData.error || `Server responded with status ${response.status}`,
       };
     }
 
     const data = await response.json();
+    const createdId =
+      data.jobDescription?._id ||
+      data.jobDescription?.id ||
+      data._id ||
+      data.id ||
+      data.data?._id ||
+      data.data?.id ||
+      '';
+
+    const frontendUrl = (config.frontendUrl || 'http://localhost:5173').replace(/\/+$/, '');
+    const redirectUrl = createdId ? `${frontendUrl}/apply?jdId=${createdId}` : `${frontendUrl}/apply`;
+
+    // Automatically redirect browser tab to Apply wizard with pre-filled JD if requested
+    if (options.redirect !== false && typeof chrome !== 'undefined' && chrome.tabs?.create) {
+      try {
+        chrome.tabs.create({ url: redirectUrl });
+      } catch (tabErr) {
+        console.warn('Failed to open Apply wizard tab:', tabErr);
+      }
+    }
+
     return {
       success: true,
       data,
+      createdId,
+      redirectUrl,
     };
   } catch (err) {
     return {
@@ -120,7 +292,8 @@ if (typeof chrome !== 'undefined' && chrome.runtime) {
   chrome.runtime.onInstalled?.addListener(async (details) => {
     console.log('[ApplyForge Service Worker] Installed:', details.reason);
     if (chrome.storage?.sync) {
-      await chrome.storage.sync.set(DEFAULT_CONFIG);
+      const existing = await chrome.storage.sync.get(DEFAULT_CONFIG);
+      await chrome.storage.sync.set({ ...DEFAULT_CONFIG, ...existing });
     }
   });
 
@@ -142,8 +315,9 @@ if (typeof chrome !== 'undefined' && chrome.runtime) {
       return true;
     }
 
+    // Save job and redirect to Apply wizard
     if (request.action === 'SAVE_JOB') {
-      sendJobToApplyForge(request.job).then((result) => {
+      sendJobToApplyForge(request.job, { redirect: request.redirect ?? true }).then((result) => {
         sendResponse(result);
       });
       return true; // Keep channel open for async response
@@ -155,22 +329,67 @@ if (typeof chrome !== 'undefined' && chrome.runtime) {
     }
 
     if (request.action === 'SAVE_CONFIG') {
-      if (chrome.storage?.sync && request.config) {
-        chrome.storage.sync.set(request.config).then(() => {
+      if (request.config) {
+        saveConfig(request.config).then(() => {
           sendResponse({ success: true });
         });
         return true;
       }
     }
 
+    // Verify current or provided JWT token
+    if (request.action === 'VERIFY_AUTH') {
+      const token = request.token;
+      getConfig().then((cfg) => {
+        const tokenToVerify = token || cfg.apiToken;
+        const server = cfg.serverUrl || DEFAULT_CONFIG.serverUrl;
+        verifyAuthToken(tokenToVerify, server).then((result) => {
+          if (result.authenticated && result.user) {
+            saveConfig({ user: result.user });
+          }
+          sendResponse(result);
+        });
+      });
+      return true;
+    }
+
+    // Email + Password login
+    if (request.action === 'LOGIN') {
+      getConfig().then((cfg) => {
+        const server = cfg.serverUrl || DEFAULT_CONFIG.serverUrl;
+        loginWithCredentials(request.email, request.password, server).then((result) => {
+          sendResponse(result);
+        });
+      });
+      return true;
+    }
+
+    // Logout / Disconnect
+    if (request.action === 'LOGOUT') {
+      saveConfig({ apiToken: '', user: null }).then(() => {
+        sendResponse({ success: true });
+      });
+      return true;
+    }
+
+    // Open Apply wizard URL in a tab
+    if (request.action === 'REDIRECT_TO_APPLY') {
+      if (request.url && chrome.tabs?.create) {
+        chrome.tabs.create({ url: request.url });
+        sendResponse({ success: true });
+      } else {
+        sendResponse({ success: false, error: 'No URL provided' });
+      }
+      return true;
+    }
+
     if (request.action === 'GET_ACTIVE_JOB') {
-      // Query active tab and request detection from content script
       chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => {
         if (!tab?.id) {
           sendResponse({ success: false, error: 'No active tab' });
           return;
         }
-        chrome.tabs.sendMessage(tab.id, { action: 'DETECT_JOB' }, (res) => {
+        chrome.tabs.sendMessage(tab.id, { action: 'CAPTURE_JD' }, (res) => {
           if (chrome.runtime.lastError) {
             sendResponse({ success: false, error: chrome.runtime.lastError.message });
           } else {
@@ -189,8 +408,11 @@ if (typeof chrome !== 'undefined' && chrome.runtime) {
 const exportsObj = {
   DEFAULT_CONFIG,
   getConfig,
+  saveConfig,
   isSupportedJobUrl,
   updateTabBadge,
+  verifyAuthToken,
+  loginWithCredentials,
   sendJobToApplyForge,
 };
 

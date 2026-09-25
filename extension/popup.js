@@ -1,7 +1,7 @@
 /**
- * ApplyForge Chrome Extension - Popup Controller (Phase 106)
- * Handles JD capture, selection toggle, live word/char metrics, highlighting,
- * and sending to ApplyForge backend.
+ * ApplyForge Chrome Extension - Popup Controller (Phase 107)
+ * Handles JD capture, selection toggle, live word/char metrics,
+ * JWT authentication, and sending to ApplyForge with automatic Apply wizard redirection.
  */
 
 let activeDetectedJob = null;
@@ -11,13 +11,21 @@ let activeTabMode = 'full'; // 'full' | 'selection'
 
 let currentConfig = {
   serverUrl: 'http://localhost:5000',
+  frontendUrl: 'http://localhost:5173',
   apiToken: '',
+  user: null,
 };
 
 // Safe element getter for browser and Node.js testing environments
 const getEl = (id) => (typeof document !== 'undefined' && document.getElementById ? document.getElementById(id) : null);
 
-// UI Elements
+// Authentication Bar Elements
+const authStatusBar = getEl('auth-status-bar');
+const authIndicatorDot = getEl('auth-indicator-dot');
+const authUserLabel = getEl('auth-user-label');
+const authActionBtn = getEl('auth-action-btn');
+
+// Status & Card Elements
 const statusBanner = getEl('status-banner');
 const statusText = getEl('status-text');
 const jobCard = getEl('job-card');
@@ -42,21 +50,34 @@ const highlightOnPageBtn = getEl('highlight-on-page-btn');
 const copyJdBtn = getEl('copy-jd-btn');
 const captureSelectionBtn = getEl('capture-selection-btn');
 const sendToApplyforgeBtn = getEl('send-to-applyforge-btn');
-const importBtnFallback = getEl('import-btn'); // For backwards compatibility if queried
+const importBtnFallback = getEl('import-btn'); // For backwards compatibility
 const sentSuccessCard = getEl('sent-success-card');
+const sentSuccessMessage = getEl('sent-success-message');
 const viewInApplyforgeLink = getEl('view-in-applyforge-link');
 
 const rescanHeaderBtn = getEl('rescan-header-btn');
 const rescanBtn = getEl('rescan-btn');
 const captureHighlightEmptyBtn = getEl('capture-highlight-empty-btn');
 
-// Settings elements
+// Settings & Auth elements
 const settingsToggleBtn = getEl('settings-toggle-btn');
+const closeSettingsXBtn = getEl('close-settings-x-btn');
+const closeSettingsBtn = getEl('close-settings-btn');
 const saveSettingsBtn = getEl('save-settings-btn');
 const testConnectionBtn = getEl('test-connection-btn');
-const closeSettingsBtn = getEl('close-settings-btn');
-const serverUrlInput = getEl('server-url-input');
+
+const loginEmailInput = getEl('login-email-input');
+const loginPasswordInput = getEl('login-password-input');
+const loginSubmitBtn = getEl('login-submit-btn');
+const loginStatusMsg = getEl('login-status-msg');
+const authSignoutBtn = getEl('auth-signout-btn');
+
 const apiTokenInput = getEl('api-token-input');
+const verifyTokenBtn = getEl('verify-token-btn');
+const syncTabTokenBtn = getEl('sync-tab-token-btn');
+
+const serverUrlInput = getEl('server-url-input');
+const frontendUrlInput = getEl('frontend-url-input');
 const openDashboardLink = getEl('open-dashboard-link');
 
 /**
@@ -79,6 +100,48 @@ function setStatus(text, type = 'loading') {
   if (statusText) statusText.textContent = text;
   if (statusBanner) {
     statusBanner.className = `status-banner status-${type}`;
+  }
+}
+
+/**
+ * Updates the Authentication Status bar UI
+ * @param {object|null} user
+ * @param {string} token
+ */
+function updateAuthUI(user, token) {
+  const hasToken = !!(token && token.trim());
+
+  if (authStatusBar) {
+    if (hasToken) {
+      authStatusBar.className = 'auth-bar auth-authenticated';
+    } else {
+      authStatusBar.className = 'auth-bar auth-unauthenticated';
+    }
+  }
+
+  if (authIndicatorDot) {
+    authIndicatorDot.className = hasToken ? 'auth-dot dot-online' : 'auth-dot dot-offline';
+  }
+
+  if (authUserLabel) {
+    if (hasToken) {
+      const email = user?.email || user?.name;
+      authUserLabel.textContent = email ? `Connected: ${email}` : 'Connected to ApplyForge';
+    } else {
+      authUserLabel.textContent = 'Not logged in to ApplyForge';
+    }
+  }
+
+  if (authActionBtn) {
+    authActionBtn.textContent = hasToken ? 'Account' : 'Sign In';
+  }
+
+  if (authSignoutBtn) {
+    if (hasToken) {
+      authSignoutBtn.classList.remove('hidden');
+    } else {
+      authSignoutBtn.classList.add('hidden');
+    }
   }
 }
 
@@ -153,7 +216,6 @@ function renderJobCard(job) {
   if (currentSelectedJd.length > 0) {
     tabSelectionJd?.classList.remove('hidden');
     captureSelectionBtn?.classList.remove('hidden');
-    // If job was detected by selection, activate selection tab
     if (job.hasSelection) {
       switchTabMode('selection');
     } else {
@@ -195,7 +257,6 @@ async function scanActiveTab(useSelectionOnly = false) {
 
     chrome.tabs.sendMessage(tab.id, { action: 'CAPTURE_JD', useSelection: useSelectionOnly }, (response) => {
       if (chrome.runtime.lastError) {
-        // Content script might not be injected yet
         jobCard?.classList.add('hidden');
         emptyState?.classList.remove('hidden');
         setStatus('Cannot scan this page (open a job posting on LinkedIn or Naukri)', 'warning');
@@ -251,7 +312,6 @@ async function copyJdText() {
     if (navigator?.clipboard?.writeText) {
       await navigator.clipboard.writeText(text);
     } else {
-      // Fallback
       jobDescTextarea.select();
       document.execCommand('copy');
     }
@@ -269,12 +329,20 @@ async function copyJdText() {
 }
 
 /**
- * Sends the captured and edited JD payload to ApplyForge backend
+ * Sends the captured JD payload to ApplyForge backend and automatically
+ * redirects to the Apply wizard with the created JD pre-filled.
  */
 async function handleSendToApplyForge() {
   const desc = jobDescTextarea?.value.trim() || '';
   if (!desc) {
     setStatus('Please ensure the job description text is not empty', 'warning');
+    return;
+  }
+
+  // Check if JWT token exists
+  if (!currentConfig.apiToken) {
+    setStatus('Authentication required: please sign in with your ApplyForge account or enter a JWT token in settings.', 'warning');
+    settingsPanel?.classList.remove('hidden');
     return;
   }
 
@@ -287,7 +355,7 @@ async function handleSendToApplyForge() {
     mainBtn.disabled = true;
     mainBtn.textContent = 'Sending to ApplyForge...';
   }
-  setStatus('Sending job description to ApplyForge backend...', 'loading');
+  setStatus('Sending job description to ApplyForge API...', 'loading');
 
   const payload = {
     ...activeDetectedJob,
@@ -297,55 +365,208 @@ async function handleSendToApplyForge() {
     description: desc,
     rawText: desc,
     url: activeDetectedJob?.url || '',
-    source: activeDetectedJob?.platform || 'extension',
+    source: 'extension',
   };
 
   if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) {
-    chrome.runtime.sendMessage({ action: 'SAVE_JOB', job: payload }, (res) => {
+    chrome.runtime.sendMessage({ action: 'SAVE_JOB', job: payload, redirect: true }, (res) => {
       if (res && res.success) {
         if (mainBtn) {
-          mainBtn.textContent = '✓ Sent to ApplyForge!';
+          mainBtn.textContent = '✓ Sent! Redirecting...';
           mainBtn.disabled = false;
         }
-        setStatus('Job successfully captured & sent to ApplyForge!', 'success');
+        setStatus('Job sent to ApplyForge! Redirected to Apply wizard.', 'success');
 
         // Show success card with direct link
         if (sentSuccessCard) {
           sentSuccessCard.classList.remove('hidden');
         }
+        if (sentSuccessMessage) {
+          sentSuccessMessage.textContent = 'Saved to ApplyForge. Opening the Apply Wizard with your JD pre-filled...';
+        }
+
+        const frontendUrl = (currentConfig.frontendUrl || 'http://localhost:5173').replace(/\/+$/, '');
+        const createdId = res.createdId || res.data?.jobDescription?._id || res.data?._id || res.data?.data?._id || '';
+        const targetUrl = res.redirectUrl || (createdId ? `${frontendUrl}/apply?jdId=${createdId}` : `${frontendUrl}/apply`);
+
         if (viewInApplyforgeLink) {
-          const baseUrl = currentConfig.serverUrl.includes('localhost')
-            ? 'http://localhost:5173'
-            : currentConfig.serverUrl;
-          const createdId = res.data?.jobDescription?._id || res.data?._id || res.data?.data?._id || '';
-          viewInApplyforgeLink.href = createdId
-            ? `${baseUrl}/tailor?jdId=${createdId}`
-            : `${baseUrl}/applications`;
+          viewInApplyforgeLink.href = targetUrl;
+          viewInApplyforgeLink.textContent = 'Open in Apply Wizard ↗';
         }
       } else {
         if (mainBtn) {
           mainBtn.disabled = false;
-          mainBtn.textContent = '⚡ Retry Send to ApplyForge';
+          mainBtn.textContent = '⚡ Send to ApplyForge';
         }
-        setStatus(res?.error || 'Failed to send job description', 'warning');
+
+        if (res?.requiresAuth) {
+          setStatus(res.error || 'Authentication required: please sign in.', 'warning');
+          settingsPanel?.classList.remove('hidden');
+        } else {
+          setStatus(res?.error || 'Failed to send job description', 'warning');
+        }
       }
     });
   } else {
-    // Non-chrome mock response for testing
+    // Non-chrome test simulation
     setStatus('Simulation: Job captured and sent to ApplyForge', 'success');
   }
 }
 
 /**
- * Initializes configuration settings from chrome.storage
+ * Performs Email & Password login from the extension popup
+ */
+async function handlePopupLogin() {
+  const email = (loginEmailInput?.value || '').trim();
+  const password = loginPasswordInput?.value || '';
+
+  if (!email || !password) {
+    if (loginStatusMsg) {
+      loginStatusMsg.className = 'login-feedback error';
+      loginStatusMsg.textContent = 'Please enter both email and password.';
+      loginStatusMsg.classList.remove('hidden');
+    }
+    return;
+  }
+
+  if (loginSubmitBtn) {
+    loginSubmitBtn.disabled = true;
+    loginSubmitBtn.textContent = 'Signing in...';
+  }
+
+  if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) {
+    chrome.runtime.sendMessage({ action: 'LOGIN', email, password }, (res) => {
+      if (loginSubmitBtn) {
+        loginSubmitBtn.disabled = false;
+        loginSubmitBtn.textContent = 'Sign In to ApplyForge';
+      }
+
+      if (res && res.success) {
+        currentConfig.apiToken = res.token;
+        currentConfig.user = res.user;
+        if (apiTokenInput) apiTokenInput.value = res.token;
+
+        updateAuthUI(res.user, res.token);
+
+        if (loginStatusMsg) {
+          loginStatusMsg.className = 'login-feedback success';
+          loginStatusMsg.textContent = `✓ Signed in as ${res.user?.email || 'user'}`;
+          loginStatusMsg.classList.remove('hidden');
+        }
+        setStatus('Successfully signed in to ApplyForge!', 'success');
+
+        setTimeout(() => {
+          loginStatusMsg?.classList.add('hidden');
+          settingsPanel?.classList.add('hidden');
+        }, 1500);
+      } else {
+        if (loginStatusMsg) {
+          loginStatusMsg.className = 'login-feedback error';
+          loginStatusMsg.textContent = res?.error || 'Login failed. Please check your credentials.';
+          loginStatusMsg.classList.remove('hidden');
+        }
+      }
+    });
+  }
+}
+
+/**
+ * Attempts to automatically sync auth token from open ApplyForge tabs
+ */
+async function handleSyncTokenFromTab() {
+  if (typeof chrome === 'undefined' || !chrome.tabs) {
+    setStatus('Cannot inspect tabs in this environment', 'warning');
+    return;
+  }
+
+  syncTabTokenBtn && (syncTabTokenBtn.textContent = 'Syncing...');
+
+  try {
+    const tabs = await chrome.tabs.query({});
+    const applyForgeTab = tabs.find(
+      (t) => t.url && (t.url.includes('localhost:5173') || t.url.includes('localhost:5000') || t.url.includes('applyforge'))
+    );
+
+    if (!applyForgeTab || !applyForgeTab.id) {
+      if (loginStatusMsg) {
+        loginStatusMsg.className = 'login-feedback error';
+        loginStatusMsg.textContent = 'No active ApplyForge tab found. Please sign in to ApplyForge in your browser.';
+        loginStatusMsg.classList.remove('hidden');
+      }
+      syncTabTokenBtn && (syncTabTokenBtn.textContent = '⚡ Sync from Tab');
+      return;
+    }
+
+    if (chrome.scripting?.executeScript) {
+      const [result] = await chrome.scripting.executeScript({
+        target: { tabId: applyForgeTab.id },
+        func: () => {
+          const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
+          let user = null;
+          try {
+            user = JSON.parse(localStorage.getItem('user'));
+          } catch {}
+          return { token, user };
+        },
+      });
+
+      if (result?.result?.token) {
+        const { token, user } = result.result;
+        currentConfig.apiToken = token;
+        currentConfig.user = user;
+        if (apiTokenInput) apiTokenInput.value = token;
+
+        chrome.runtime.sendMessage({ action: 'SAVE_CONFIG', config: { apiToken: token, user } });
+        updateAuthUI(user, token);
+
+        if (loginStatusMsg) {
+          loginStatusMsg.className = 'login-feedback success';
+          loginStatusMsg.textContent = '✓ Successfully synced token from ApplyForge web tab!';
+          loginStatusMsg.classList.remove('hidden');
+        }
+        setStatus('Synced auth credentials from browser tab!', 'success');
+      } else {
+        if (loginStatusMsg) {
+          loginStatusMsg.className = 'login-feedback error';
+          loginStatusMsg.textContent = 'No active login session found on the ApplyForge tab.';
+          loginStatusMsg.classList.remove('hidden');
+        }
+      }
+    }
+  } catch (err) {
+    if (loginStatusMsg) {
+      loginStatusMsg.className = 'login-feedback error';
+      loginStatusMsg.textContent = `Sync failed: ${err.message}`;
+      loginStatusMsg.classList.remove('hidden');
+    }
+  } finally {
+    syncTabTokenBtn && (syncTabTokenBtn.textContent = '⚡ Sync from Tab');
+  }
+}
+
+/**
+ * Initializes configuration settings and checks auth status
  */
 async function loadConfig() {
   if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) {
     chrome.runtime.sendMessage({ action: 'GET_CONFIG' }, (res) => {
       if (res && res.config) {
-        currentConfig = res.config;
+        currentConfig = { ...currentConfig, ...res.config };
         if (serverUrlInput) serverUrlInput.value = currentConfig.serverUrl || 'http://localhost:5000';
+        if (frontendUrlInput) frontendUrlInput.value = currentConfig.frontendUrl || 'http://localhost:5173';
         if (apiTokenInput) apiTokenInput.value = currentConfig.apiToken || '';
+
+        updateAuthUI(currentConfig.user, currentConfig.apiToken);
+
+        // Verify token in background if present
+        if (currentConfig.apiToken) {
+          chrome.runtime.sendMessage({ action: 'VERIFY_AUTH' }, (authRes) => {
+            if (authRes && authRes.authenticated) {
+              currentConfig.user = authRes.user || currentConfig.user;
+              updateAuthUI(currentConfig.user, currentConfig.apiToken);
+            }
+          });
+        }
       }
     });
   }
@@ -354,126 +575,191 @@ async function loadConfig() {
 // Event Listeners initialization
 if (typeof document !== 'undefined' && document.addEventListener) {
   document.addEventListener('DOMContentLoaded', () => {
-  loadConfig();
-  scanActiveTab();
+    loadConfig();
+    scanActiveTab();
 
-  // Live metrics update when user edits JD in textarea
-  if (jobDescTextarea) {
-    jobDescTextarea.addEventListener('input', () => {
-      updateMetrics(jobDescTextarea.value);
-      if (activeTabMode === 'full') {
-        currentFullJd = jobDescTextarea.value;
-      } else {
-        currentSelectedJd = jobDescTextarea.value;
-      }
-    });
-  }
+    // Live metrics update when user edits JD in textarea
+    if (jobDescTextarea) {
+      jobDescTextarea.addEventListener('input', () => {
+        updateMetrics(jobDescTextarea.value);
+        if (activeTabMode === 'full') {
+          currentFullJd = jobDescTextarea.value;
+        } else {
+          currentSelectedJd = jobDescTextarea.value;
+        }
+      });
+    }
 
-  // Tab switcher
-  if (tabFullJd) {
-    tabFullJd.addEventListener('click', () => switchTabMode('full'));
-  }
-  if (tabSelectionJd) {
-    tabSelectionJd.addEventListener('click', () => switchTabMode('selection'));
-  }
+    // Tab switcher
+    if (tabFullJd) {
+      tabFullJd.addEventListener('click', () => switchTabMode('full'));
+    }
+    if (tabSelectionJd) {
+      tabSelectionJd.addEventListener('click', () => switchTabMode('selection'));
+    }
 
-  // Text tool buttons
-  if (highlightOnPageBtn) {
-    highlightOnPageBtn.addEventListener('click', highlightOnPage);
-  }
-  if (copyJdBtn) {
-    copyJdBtn.addEventListener('click', copyJdText);
-  }
-  if (captureSelectionBtn) {
-    captureSelectionBtn.addEventListener('click', () => switchTabMode('selection'));
-  }
+    // Text tool buttons
+    if (highlightOnPageBtn) {
+      highlightOnPageBtn.addEventListener('click', highlightOnPage);
+    }
+    if (copyJdBtn) {
+      copyJdBtn.addEventListener('click', copyJdText);
+    }
+    if (captureSelectionBtn) {
+      captureSelectionBtn.addEventListener('click', () => switchTabMode('selection'));
+    }
 
-  // Primary Action: Send to ApplyForge
-  if (sendToApplyforgeBtn) {
-    sendToApplyforgeBtn.addEventListener('click', handleSendToApplyForge);
-  }
-  if (importBtnFallback) {
-    importBtnFallback.addEventListener('click', handleSendToApplyForge);
-  }
+    // Primary Action: Send to ApplyForge
+    if (sendToApplyforgeBtn) {
+      sendToApplyforgeBtn.addEventListener('click', handleSendToApplyForge);
+    }
+    if (importBtnFallback) {
+      importBtnFallback.addEventListener('click', handleSendToApplyForge);
+    }
 
-  // Rescan actions
-  if (rescanHeaderBtn) {
-    rescanHeaderBtn.addEventListener('click', () => scanActiveTab(false));
-  }
-  if (rescanBtn) {
-    rescanBtn.addEventListener('click', () => scanActiveTab(false));
-  }
-  if (captureHighlightEmptyBtn) {
-    captureHighlightEmptyBtn.addEventListener('click', () => scanActiveTab(true));
-  }
+    // Auth Bar action button
+    if (authActionBtn) {
+      authActionBtn.addEventListener('click', () => {
+        settingsPanel?.classList.toggle('hidden');
+      });
+    }
 
-  // Settings Panel events
-  if (settingsToggleBtn) {
-    settingsToggleBtn.addEventListener('click', () => {
-      settingsPanel?.classList.toggle('hidden');
-    });
-  }
-  if (closeSettingsBtn) {
-    closeSettingsBtn.addEventListener('click', () => {
-      settingsPanel?.classList.add('hidden');
-    });
-  }
-  if (saveSettingsBtn) {
-    saveSettingsBtn.addEventListener('click', () => {
-      const newConfig = {
-        serverUrl: (serverUrlInput?.value || '').trim() || 'http://localhost:5000',
-        apiToken: (apiTokenInput?.value || '').trim(),
-      };
+    // Login submit
+    if (loginSubmitBtn) {
+      loginSubmitBtn.addEventListener('click', handlePopupLogin);
+    }
 
-      if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) {
-        chrome.runtime.sendMessage({ action: 'SAVE_CONFIG', config: newConfig }, (res) => {
-          if (res && res.success) {
-            currentConfig = newConfig;
-            settingsPanel?.classList.add('hidden');
-            setStatus('Settings saved successfully', 'success');
+    // Sync token from tab
+    if (syncTabTokenBtn) {
+      syncTabTokenBtn.addEventListener('click', handleSyncTokenFromTab);
+    }
+
+    // Sign out button
+    if (authSignoutBtn) {
+      authSignoutBtn.addEventListener('click', () => {
+        if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) {
+          chrome.runtime.sendMessage({ action: 'LOGOUT' }, () => {
+            currentConfig.apiToken = '';
+            currentConfig.user = null;
+            if (apiTokenInput) apiTokenInput.value = '';
+            updateAuthUI(null, '');
+            setStatus('Logged out of ApplyForge', 'warning');
+          });
+        }
+      });
+    }
+
+    // Verify token button
+    if (verifyTokenBtn) {
+      verifyTokenBtn.addEventListener('click', () => {
+        const token = (apiTokenInput?.value || '').trim();
+        if (!token) {
+          setStatus('Please enter a JWT token to verify', 'warning');
+          return;
+        }
+        verifyTokenBtn.textContent = 'Verifying...';
+        chrome.runtime.sendMessage({ action: 'VERIFY_AUTH', token }, (res) => {
+          verifyTokenBtn.textContent = 'Verify Token';
+          if (res && res.authenticated) {
+            currentConfig.apiToken = token;
+            currentConfig.user = res.user;
+            chrome.runtime.sendMessage({ action: 'SAVE_CONFIG', config: { apiToken: token, user: res.user } });
+            updateAuthUI(res.user, token);
+            setStatus(`Token verified! Connected as ${res.user?.email || 'user'}`, 'success');
+          } else {
+            setStatus('Token verification failed: invalid or expired', 'warning');
           }
         });
-      }
-    });
-  }
-  if (testConnectionBtn) {
-    testConnectionBtn.addEventListener('click', async () => {
-      const serverUrl = (serverUrlInput?.value || 'http://localhost:5000').trim().replace(/\/+$/, '');
-      testConnectionBtn.textContent = 'Testing...';
-      try {
-        const resp = await fetch(`${serverUrl}/health`).catch(() => null);
-        if (resp && resp.ok) {
-          testConnectionBtn.textContent = '✓ Connected!';
-          setStatus('ApplyForge server is online and reachable!', 'success');
-        } else {
-          testConnectionBtn.textContent = '✗ Unreachable';
-          setStatus('ApplyForge server returned non-200 or could not connect', 'warning');
+      });
+    }
+
+    // Rescan actions
+    if (rescanHeaderBtn) {
+      rescanHeaderBtn.addEventListener('click', () => scanActiveTab(false));
+    }
+    if (rescanBtn) {
+      rescanBtn.addEventListener('click', () => scanActiveTab(false));
+    }
+    if (captureHighlightEmptyBtn) {
+      captureHighlightEmptyBtn.addEventListener('click', () => scanActiveTab(true));
+    }
+
+    // Settings Panel toggle & close
+    if (settingsToggleBtn) {
+      settingsToggleBtn.addEventListener('click', () => {
+        settingsPanel?.classList.toggle('hidden');
+      });
+    }
+    if (closeSettingsXBtn) {
+      closeSettingsXBtn.addEventListener('click', () => {
+        settingsPanel?.classList.add('hidden');
+      });
+    }
+    if (closeSettingsBtn) {
+      closeSettingsBtn.addEventListener('click', () => {
+        settingsPanel?.classList.add('hidden');
+      });
+    }
+
+    // Save Settings
+    if (saveSettingsBtn) {
+      saveSettingsBtn.addEventListener('click', () => {
+        const newConfig = {
+          serverUrl: (serverUrlInput?.value || '').trim() || 'http://localhost:5000',
+          frontendUrl: (frontendUrlInput?.value || '').trim() || 'http://localhost:5173',
+          apiToken: (apiTokenInput?.value || '').trim(),
+        };
+
+        if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) {
+          chrome.runtime.sendMessage({ action: 'SAVE_CONFIG', config: newConfig }, (res) => {
+            if (res && res.success) {
+              currentConfig = { ...currentConfig, ...newConfig };
+              updateAuthUI(currentConfig.user, newConfig.apiToken);
+              settingsPanel?.classList.add('hidden');
+              setStatus('Settings saved successfully', 'success');
+            }
+          });
         }
-      } catch (e) {
-        testConnectionBtn.textContent = '✗ Error';
-        setStatus(`Connection failed: ${e.message}`, 'warning');
-      }
-      setTimeout(() => {
-        if (testConnectionBtn) testConnectionBtn.textContent = 'Test Connection';
-      }, 3000);
-    });
-  }
+      });
+    }
 
-  // Open Dashboard link
-  if (openDashboardLink) {
-    openDashboardLink.addEventListener('click', (e) => {
-      e.preventDefault();
-      const dashboardUrl = currentConfig.serverUrl.includes('localhost')
-        ? 'http://localhost:5173'
-        : currentConfig.serverUrl;
+    // Test Connection
+    if (testConnectionBtn) {
+      testConnectionBtn.addEventListener('click', async () => {
+        const serverUrl = (serverUrlInput?.value || 'http://localhost:5000').trim().replace(/\/+$/, '');
+        testConnectionBtn.textContent = 'Testing...';
+        try {
+          const resp = await fetch(`${serverUrl}/health`).catch(() => null);
+          if (resp && resp.ok) {
+            testConnectionBtn.textContent = '✓ Connected!';
+            setStatus('ApplyForge API server is online and reachable!', 'success');
+          } else {
+            testConnectionBtn.textContent = '✗ Unreachable';
+            setStatus('ApplyForge server returned non-200 or could not connect', 'warning');
+          }
+        } catch (e) {
+          testConnectionBtn.textContent = '✗ Error';
+          setStatus(`Connection failed: ${e.message}`, 'warning');
+        }
+        setTimeout(() => {
+          if (testConnectionBtn) testConnectionBtn.textContent = 'Test Connection';
+        }, 3000);
+      });
+    }
 
-      if (typeof chrome !== 'undefined' && chrome.tabs?.create) {
-        chrome.tabs.create({ url: dashboardUrl });
-      } else {
-        window.open(dashboardUrl, '_blank');
-      }
-    });
-  }
+    // Open Dashboard link
+    if (openDashboardLink) {
+      openDashboardLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        const dashboardUrl = currentConfig.frontendUrl || 'http://localhost:5173';
+
+        if (typeof chrome !== 'undefined' && chrome.tabs?.create) {
+          chrome.tabs.create({ url: dashboardUrl });
+        } else {
+          window.open(dashboardUrl, '_blank');
+        }
+      });
+    }
   });
 }
 
@@ -482,12 +768,15 @@ const exportsObj = {
   calculateWordCount,
   setStatus,
   updateMetrics,
+  updateAuthUI,
   switchTabMode,
   renderJobCard,
   scanActiveTab,
   highlightOnPage,
   copyJdText,
   handleSendToApplyForge,
+  handlePopupLogin,
+  handleSyncTokenFromTab,
 };
 
 if (typeof module !== 'undefined' && module.exports) {

@@ -355,5 +355,155 @@ describe('Phase 105 Browser Extension Scaffold Tests', () => {
       expect(sourceEnum).toContain('url');
     });
   });
+
+  describe('Phase 107 Browser Extension API & JWT Authentication Integration', () => {
+    const backgroundWorker = require('../../../extension/background.js');
+    const popupController = require('../../../extension/popup.js');
+    const popupHtmlPath = path.join(EXTENSION_DIR, 'popup.html');
+    const manifestPath = path.join(EXTENSION_DIR, 'manifest.json');
+    let popupHtml;
+    let manifest;
+
+    beforeAll(() => {
+      popupHtml = fs.readFileSync(popupHtmlPath, 'utf8');
+      manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    });
+
+    it('should declare tabs permission in manifest for redirecting to Apply wizard', () => {
+      expect(manifest.permissions).toContain('tabs');
+      expect(manifest.permissions).toContain('storage');
+    });
+
+    it('should define DEFAULT_CONFIG with serverUrl, frontendUrl, and apiToken', () => {
+      expect(backgroundWorker.DEFAULT_CONFIG).toBeDefined();
+      expect(backgroundWorker.DEFAULT_CONFIG.serverUrl).toBe('http://localhost:5000');
+      expect(backgroundWorker.DEFAULT_CONFIG.frontendUrl).toBe('http://localhost:5173');
+      expect(backgroundWorker.DEFAULT_CONFIG.apiToken).toBe('');
+    });
+
+    it('should enforce authentication when sending job without token', async () => {
+      // With empty token, should return requiresAuth: true
+      const result = await backgroundWorker.sendJobToApplyForge({
+        title: 'Senior Software Engineer',
+        company: 'Stripe',
+        description: 'Building global payment infrastructure.',
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.requiresAuth).toBe(true);
+      expect(result.error).toContain('Authentication required');
+    });
+
+    it('should verify auth token rejects empty token gracefully', async () => {
+      const authResult = await backgroundWorker.verifyAuthToken('');
+      expect(authResult.authenticated).toBe(false);
+      expect(authResult.error).toContain('No token provided');
+    });
+
+    it('should reject login attempt when credentials are missing', async () => {
+      const loginResult = await backgroundWorker.loginWithCredentials('', '');
+      expect(loginResult.success).toBe(false);
+      expect(loginResult.error).toContain('Email and password are required');
+    });
+
+    it('should send Authorization Bearer header and compute Apply wizard redirectUrl', async () => {
+      const originalFetch = global.fetch;
+      let capturedHeaders = null;
+      let capturedBody = null;
+
+      global.fetch = jest.fn().mockImplementation((url, options) => {
+        capturedHeaders = options.headers;
+        capturedBody = JSON.parse(options.body);
+        return Promise.resolve({
+          ok: true,
+          status: 201,
+          json: () =>
+            Promise.resolve({
+              success: true,
+              jobDescription: {
+                _id: 'jd_test_123456',
+                company: 'Vercel',
+                roleTitle: 'Frontend Architect',
+              },
+            }),
+        });
+      });
+
+      // Temporarily mock getConfig in backgroundWorker
+      const mockConfig = {
+        serverUrl: 'http://localhost:5000',
+        frontendUrl: 'http://localhost:5173',
+        apiToken: 'mock_jwt_token_applyforge_xyz',
+      };
+
+      // Mock chrome storage
+      global.chrome = {
+        storage: {
+          sync: {
+            get: jest.fn().mockResolvedValue(mockConfig),
+            set: jest.fn().mockResolvedValue(true),
+          },
+        },
+        tabs: {
+          create: jest.fn(),
+        },
+      };
+
+      const result = await backgroundWorker.sendJobToApplyForge(
+        {
+          title: 'Frontend Architect',
+          company: 'Vercel',
+          description: 'Leading Next.js frontend architecture and edge rendering.',
+          url: 'https://boards.greenhouse.io/vercel/jobs/9999',
+        },
+        { redirect: false }
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.createdId).toBe('jd_test_123456');
+      expect(result.redirectUrl).toBe('http://localhost:5173/apply?jdId=jd_test_123456');
+      expect(capturedHeaders['Authorization']).toBe('Bearer mock_jwt_token_applyforge_xyz');
+      expect(capturedBody.company).toBe('Vercel');
+      expect(capturedBody.roleTitle).toBe('Frontend Architect');
+      expect(capturedBody.source).toBe('extension');
+
+      global.fetch = originalFetch;
+    });
+
+    it('should include Authentication status bar and quick login elements in popup HTML', () => {
+      expect(popupHtml).toContain('id="auth-status-bar"');
+      expect(popupHtml).toContain('id="auth-user-label"');
+      expect(popupHtml).toContain('id="auth-indicator-dot"');
+      expect(popupHtml).toContain('id="login-email-input"');
+      expect(popupHtml).toContain('id="login-password-input"');
+      expect(popupHtml).toContain('id="login-submit-btn"');
+    });
+
+    it('should include JWT token input and Apply wizard redirection in popup HTML', () => {
+      expect(popupHtml).toContain('id="api-token-input"');
+      expect(popupHtml).toContain('id="verify-token-btn"');
+      expect(popupHtml).toContain('id="frontend-url-input"');
+      expect(popupHtml).toContain('Open in Apply Wizard ↗');
+      expect(popupHtml).toContain('Posts JD to ApplyForge and opens the Apply Wizard with this JD pre-filled');
+    });
+
+    it('should export updateAuthUI and handle auth UI updates without error', () => {
+      expect(popupController.updateAuthUI).toBeDefined();
+      expect(() => {
+        popupController.updateAuthUI(null, '');
+        popupController.updateAuthUI({ email: 'candidate@applyforge.com' }, 'valid_token');
+      }).not.toThrow();
+    });
+
+    it('should verify Apply page in client supports ?jdId query param', () => {
+      const applyPagePath = path.resolve(__dirname, '../../../client/src/pages/Apply.jsx');
+      const applyPageContent = fs.readFileSync(applyPagePath, 'utf8');
+
+      expect(applyPageContent).toContain('useSearchParams');
+      expect(applyPageContent).toContain("searchParams.get('jdId')");
+      expect(applyPageContent).toContain("setJdInputMode('saved')");
+    });
+  });
 });
+
 

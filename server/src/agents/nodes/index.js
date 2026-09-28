@@ -38,6 +38,15 @@ const {
   parseFitScore,
 } = require('./fitScoringNode');
 
+const {
+  followUpNode,
+  FOLLOW_UP_SYSTEM_PROMPT,
+  buildFollowUpPrompt,
+  generateFollowUpHeuristic,
+  parseFollowUpDraft,
+  generateFollowUpEmail,
+} = require('./followUpNode');
+
 module.exports = {
   parserNode,
   formatStructuredResume,
@@ -64,4 +73,10 @@ module.exports = {
   determineTier,
   generateFitScoreHeuristic,
   parseFitScore,
+  followUpNode,
+  FOLLOW_UP_SYSTEM_PROMPT,
+  buildFollowUpPrompt,
+  generateFollowUpHeuristic,
+  parseFollowUpDraft,
+  generateFollowUpEmail,
 };

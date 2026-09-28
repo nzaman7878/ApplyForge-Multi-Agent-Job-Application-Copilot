@@ -96,9 +96,35 @@ const listApplications = [
     .withMessage('Limit must be an integer between 1 and 100'),
 ];
 
+/**
+ * Body parameter validations for drafting follow-up emails
+ */
+const draftFollowUp = [
+  body('daysSinceApplied')
+    .optional({ nullable: true })
+    .isInt({ min: 0, max: 365 })
+    .withMessage('daysSinceApplied must be a non-negative integer'),
+  body('tone')
+    .optional()
+    .trim()
+    .isLength({ max: 50 })
+    .withMessage('tone cannot exceed 50 characters'),
+  body('recipientName')
+    .optional()
+    .trim()
+    .isLength({ max: 100 })
+    .withMessage('recipientName cannot exceed 100 characters'),
+  body('customNotes')
+    .optional()
+    .trim()
+    .isLength({ max: 1000 })
+    .withMessage('customNotes cannot exceed 1000 characters'),
+];
+
 module.exports = {
   createApplication,
   updateApplication,
   listApplications,
+  draftFollowUp,
   VALID_STATUSES,
 };

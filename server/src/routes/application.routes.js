@@ -38,6 +38,13 @@ router.post('/:id/edits', applicationController.recordApplicationEdit);
 // GET /api/applications/:id — full detail
 router.get('/:id', applicationController.getApplicationById);
 
+// POST /api/applications/:id/draft-followup — draft follow-up email based on elapsed days & context
+router.post(
+  '/:id/draft-followup',
+  validate(applicationValidators.draftFollowUp),
+  applicationController.draftFollowUpEmail
+);
+
 // PATCH /api/applications/:id — update status, follow-up dates, notes
 router.patch(
   '/:id',

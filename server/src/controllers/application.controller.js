@@ -9,6 +9,7 @@ const {
   getUserEditHistory,
   extractVoiceSignals,
 } = require('../services/voiceLearning/editCollector');
+const { generateFollowUpEmail } = require('../agents/nodes/followUpNode');
 
 /**
  * POST /api/applications
@@ -551,6 +552,116 @@ async function getVoiceProfile(req, res) {
   }
 }
 
+/**
+ * POST /api/applications/:id/draft-followup
+ * Generates an AI-tailored follow-up email draft based on the application,
+ * candidate accomplishments, current hiring stage, and days elapsed since submission.
+ */
+async function draftFollowUpEmail(req, res) {
+  try {
+    const { id } = req.params;
+    const userId = req.user._id.toString();
+
+    let application = null;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      application = await Application.findById(id).populate('resumeId').populate('jdId');
+    }
+    if (!application) {
+      application = await Application.findOne({ runId: id }).populate('resumeId').populate('jdId');
+    }
+
+    if (!application) {
+      return res.status(404).json({
+        error: 'Application not found',
+        message: `No application found matching ID "${id}"`,
+      });
+    }
+
+    if (application.userId.toString() !== userId) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You do not have permission to draft follow-up emails for this application',
+      });
+    }
+
+    const { daysSinceApplied: requestedDays, tone, recipientName, customNotes } = req.body || {};
+
+    // Calculate actual elapsed days if not explicitly specified
+    let daysSinceApplied;
+    if (requestedDays !== undefined && requestedDays !== null) {
+      daysSinceApplied = Number(requestedDays);
+    } else {
+      const applicationDate = new Date(
+        application.appliedAt ||
+          application.appliedDate ||
+          application.createdAt ||
+          Date.now()
+      ).getTime();
+      const elapsedMs = Date.now() - applicationDate;
+      daysSinceApplied = Math.max(0, Math.floor(elapsedMs / (1000 * 60 * 60 * 24)));
+    }
+
+    // Determine candidate name & email from populated resume or user account
+    const candidateName =
+      application.resumeId?.parsedSections?.contact?.name ||
+      application.resumeId?.name ||
+      req.user?.name ||
+      'Candidate';
+
+    const candidateEmail =
+      application.resumeId?.parsedSections?.contact?.email ||
+      req.user?.email ||
+      '';
+
+    const draft = await generateFollowUpEmail({
+      application,
+      candidateName,
+      candidateEmail,
+      daysSinceApplied,
+      roleTitle: application.roleTitle,
+      company: application.company,
+      status: application.status,
+      tailoredBullets: application.tailoredBullets || application.tailoredResume || [],
+      recipientName: recipientName || '',
+      tone: tone || 'professional',
+      customNotes: customNotes || '',
+    });
+
+    // Save draft to application document
+    application.followUpEmail = {
+      ...draft,
+      draftedAt: new Date(),
+    };
+
+    if (!Array.isArray(application.followUpDrafts)) {
+      application.followUpDrafts = [];
+    }
+    application.followUpDrafts.push(application.followUpEmail);
+
+    await application.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Follow-up email drafted successfully',
+      draft: application.followUpEmail,
+      emailDraft: application.followUpEmail,
+      application: {
+        id: application._id,
+        company: application.company,
+        roleTitle: application.roleTitle,
+        status: application.status,
+        daysSinceApplied,
+      },
+    });
+  } catch (error) {
+    console.error('[ApplicationController] Error drafting follow-up email:', error);
+    return res.status(500).json({
+      error: 'Failed to draft follow-up email',
+      message: error.message,
+    });
+  }
+}
+
 module.exports = {
   createApplication,
   getApplications,
@@ -561,5 +672,6 @@ module.exports = {
   getApplicationEdits,
   recordApplicationEdit,
   getVoiceProfile,
+  draftFollowUpEmail,
 };
 

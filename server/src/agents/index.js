@@ -37,6 +37,14 @@ const {
   parseFitScore,
 } = require('./nodes/fitScoringNode');
 const {
+  followUpNode,
+  FOLLOW_UP_SYSTEM_PROMPT,
+  buildFollowUpPrompt,
+  generateFollowUpHeuristic,
+  parseFollowUpDraft,
+  generateFollowUpEmail,
+} = require('./nodes/followUpNode');
+const {
   PIPELINE_NODES,
   buildApplicationGraph,
   createApplicationPipeline,
@@ -78,6 +86,12 @@ module.exports = {
   determineTier,
   generateFitScoreHeuristic,
   parseFitScore,
+  followUpNode,
+  FOLLOW_UP_SYSTEM_PROMPT,
+  buildFollowUpPrompt,
+  generateFollowUpHeuristic,
+  parseFollowUpDraft,
+  generateFollowUpEmail,
   PIPELINE_NODES,
   buildApplicationGraph,
   createApplicationPipeline,

@@ -5,6 +5,7 @@ export { default as ApplicationCard } from './ApplicationCard';
 export { default as ApplicationTable } from './ApplicationTable';
 export { default as StatusTimeline } from './StatusTimeline';
 export { default as FollowUpBanner } from './FollowUpBanner';
+export { default as FollowUpDraftModal } from './FollowUpDraftModal';
 export * from './constants';
 
 

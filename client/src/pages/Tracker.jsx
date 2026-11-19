@@ -1,7 +1,12 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import AppLayout from '../components/layout/AppLayout';
-import { KanbanBoard, ApplicationTable, FollowUpBanner } from '../components/tracker';
+import {
+  KanbanBoard,
+  ApplicationTable,
+  FollowUpBanner,
+  FollowUpDraftModal,
+} from '../components/tracker';
 import PageLoader from '../components/ui/PageLoader';
 import { useToast } from '../hooks/useToast';
 import api from '../lib/axios';
@@ -12,6 +17,29 @@ export default function Tracker() {
   const [dueFollowUps, setDueFollowUps] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [draftModalApp, setDraftModalApp] = useState(null);
+  const [isDraftModalOpen, setIsDraftModalOpen] = useState(false);
+
+  const handleOpenDraftModal = (app) => {
+    setDraftModalApp(app);
+    setIsDraftModalOpen(true);
+  };
+
+  const handleCloseDraftModal = () => {
+    setIsDraftModalOpen(false);
+    setDraftModalApp(null);
+  };
+
+  const handleDraftSaved = (updatedApp, draft) => {
+    const targetId = updatedApp.id || updatedApp._id;
+    setApplications((prev) =>
+      prev.map((app) =>
+        (app.id || app._id) === targetId
+          ? { ...app, followUpEmail: draft }
+          : app
+      )
+    );
+  };
   const [viewMode, setViewMode] = useState(() => {
     try {
       return localStorage.getItem('applyforge_tracker_view') || 'kanban';
@@ -361,6 +389,7 @@ export default function Tracker() {
           dueFollowUps={dueFollowUps}
           onMarkFollowedUp={handleMarkFollowedUp}
           onSnooze={handleSnoozeFollowUp}
+          onDraftFollowUp={handleOpenDraftModal}
         />
 
         {/* Metrics Overview Bar */}
@@ -422,6 +451,7 @@ export default function Tracker() {
               applications={filteredApplications}
               onStatusChange={handleStatusChange}
               onMarkFollowUp={handleMarkFollowUp}
+              onDraftFollowUp={handleOpenDraftModal}
               isLoading={isLoading}
             />
           </div>
@@ -429,9 +459,19 @@ export default function Tracker() {
           <ApplicationTable
             applications={filteredApplications}
             onStatusChange={handleStatusChange}
+            onDraftFollowUp={handleOpenDraftModal}
             isLoading={isLoading}
           />
         )}
+
+        {/* Follow-Up Email Draft Modal */}
+        <FollowUpDraftModal
+          isOpen={isDraftModalOpen}
+          onClose={handleCloseDraftModal}
+          application={draftModalApp}
+          onDraftSaved={handleDraftSaved}
+          onMarkFollowedUp={handleMarkFollowedUp}
+        />
       </main>
     </AppLayout>
   );

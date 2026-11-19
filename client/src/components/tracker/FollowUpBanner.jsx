@@ -41,6 +41,7 @@ export default function FollowUpBanner({
   dueFollowUps = [],
   onMarkFollowedUp,
   onSnooze,
+  onDraftFollowUp,
 }) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [activeSnoozeId, setActiveSnoozeId] = useState(null);
@@ -165,6 +166,19 @@ export default function FollowUpBanner({
 
                 {/* Right: Quick Actions */}
                 <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+                  {/* Draft Follow-Up Email Button */}
+                  {onDraftFollowUp && (
+                    <button
+                      type="button"
+                      onClick={() => onDraftFollowUp(app)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition shadow-sm cursor-pointer"
+                      title="Draft tailored follow-up email"
+                    >
+                      <span>✉️</span>
+                      <span>Draft Email</span>
+                    </button>
+                  )}
+
                   {/* Mark Followed-Up Button */}
                   <button
                     type="button"

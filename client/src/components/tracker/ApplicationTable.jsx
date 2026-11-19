@@ -59,6 +59,7 @@ function extractDate(app) {
 export default function ApplicationTable({
   applications = [],
   onStatusChange,
+  onDraftFollowUp,
   isLoading = false,
 }) {
   const [sortKey, setSortKey] = useState('date');
@@ -389,13 +390,26 @@ export default function ApplicationTable({
 
                   {/* Actions */}
                   <td className="py-3 px-4 text-right">
-                    <Link
-                      to={`/applications/${appId}`}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-blue-600 text-slate-300 hover:text-white transition font-medium text-xs shadow-sm"
-                    >
-                      <span>View</span>
-                      <span>→</span>
-                    </Link>
+                    <div className="inline-flex items-center gap-1.5 justify-end">
+                      {onDraftFollowUp && (
+                        <button
+                          type="button"
+                          onClick={() => onDraftFollowUp(app)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white transition font-medium text-xs border border-blue-500/30 cursor-pointer"
+                          title="Draft tailored follow-up email"
+                        >
+                          <span>✉️</span>
+                          <span className="hidden md:inline">Draft</span>
+                        </button>
+                      )}
+                      <Link
+                        to={`/applications/${appId}`}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition font-medium text-xs shadow-sm border border-slate-700/60"
+                      >
+                        <span>View</span>
+                        <span>→</span>
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               );

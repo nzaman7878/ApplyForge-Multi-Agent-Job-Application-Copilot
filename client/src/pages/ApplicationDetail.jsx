@@ -18,6 +18,7 @@ import {
   getStatusInfo,
   getFitScoreStyle,
   getDaysSinceApplied,
+  FollowUpDraftModal,
 } from '../components/tracker';
 import { selectAgentOutputs } from '../store/applySlice';
 
@@ -47,6 +48,7 @@ export default function ApplicationDetail() {
   const [followUpDate, setFollowUpDate] = useState('');
   const [notes, setNotes] = useState('');
   const [isExporting, setIsExporting] = useState(false);
+  const [isDraftModalOpen, setIsDraftModalOpen] = useState(false);
 
   // Fetch application details on mount
   useEffect(() => {
@@ -432,14 +434,24 @@ export default function ApplicationDetail() {
                 <span className="text-amber-300 font-semibold">{application.company}</span>.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={handleMarkFollowUpCompleted}
-              disabled={isUpdatingFollowUp}
-              className="px-3 py-1.5 rounded-lg bg-amber-500 text-slate-950 font-bold hover:bg-amber-400 transition text-xs shrink-0"
-            >
-              ✓ Mark Follow-Up Completed
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsDraftModalOpen(true)}
+                className="px-3 py-1.5 rounded-lg bg-blue-600 text-white font-bold hover:bg-blue-500 transition text-xs shrink-0 flex items-center gap-1.5 cursor-pointer shadow-sm"
+              >
+                <span>✉️</span>
+                <span>Draft Follow-Up</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleMarkFollowUpCompleted}
+                disabled={isUpdatingFollowUp}
+                className="px-3 py-1.5 rounded-lg bg-amber-500 text-slate-950 font-bold hover:bg-amber-400 transition text-xs shrink-0 cursor-pointer"
+              >
+                ✓ Mark Follow-Up Completed
+              </button>
+            </div>
           </div>
         )}
 
@@ -523,7 +535,17 @@ export default function ApplicationDetail() {
             </div>
 
             {/* Header Action Buttons */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                onClick={() => setIsDraftModalOpen(true)}
+                className="gap-1.5 shadow-sm shadow-blue-600/30"
+              >
+                <span>✉️</span>
+                <span>Draft Follow-Up</span>
+              </Button>
               <Button
                 type="button"
                 variant="secondary"
@@ -761,6 +783,20 @@ export default function ApplicationDetail() {
             onStatusChange={handleUpdateStatus}
           />
         )}
+
+        {/* Follow-Up Email Draft Modal */}
+        <FollowUpDraftModal
+          isOpen={isDraftModalOpen}
+          onClose={() => setIsDraftModalOpen(false)}
+          application={application}
+          onDraftSaved={(updatedApp, draft) => {
+            setApplication((prev) => ({
+              ...prev,
+              followUpEmail: draft,
+            }));
+          }}
+          onMarkFollowedUp={handleMarkFollowUpCompleted}
+        />
       </main>
     </AppLayout>
   );

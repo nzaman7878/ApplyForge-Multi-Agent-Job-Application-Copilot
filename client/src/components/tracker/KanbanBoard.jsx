@@ -27,6 +27,7 @@ export default function KanbanBoard({
   applications = [],
   onStatusChange,
   onMarkFollowUp,
+  onDraftFollowUp,
   isLoading = false,
 }) {
   const [activeCard, setActiveCard] = useState(null);
@@ -154,6 +155,7 @@ export default function KanbanBoard({
               applications={columnApplications[col.id] || []}
               onStatusChange={onStatusChange}
               onMarkFollowUp={onMarkFollowUp}
+              onDraftFollowUp={onDraftFollowUp}
             />
           ))}
         </div>

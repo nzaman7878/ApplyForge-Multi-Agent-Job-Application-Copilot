@@ -12,6 +12,7 @@ export default function KanbanCard({
   isOverlay = false,
   onStatusChange,
   onMarkFollowUp,
+  onDraftFollowUp,
 }) {
   const cardId = application?.id || application?._id;
 
@@ -54,6 +55,7 @@ export default function KanbanCard({
         isOverlay={isOverlay}
         onStatusChange={onStatusChange}
         onMarkFollowUp={onMarkFollowUp}
+        onDraftFollowUp={onDraftFollowUp}
       />
     </div>
   );

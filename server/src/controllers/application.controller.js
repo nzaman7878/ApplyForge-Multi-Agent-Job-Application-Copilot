@@ -311,6 +311,7 @@ async function updateApplication(req, res) {
       'atsReport',
       'fitScore',
       'userEdits',
+      'followUpEmail',
     ];
 
     for (const field of allowedFields) {

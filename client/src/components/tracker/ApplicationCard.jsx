@@ -65,6 +65,7 @@ export default function ApplicationCard({
   application,
   onStatusChange,
   onMarkFollowUp,
+  onDraftFollowUp,
   onView,
   className = '',
   isOverlay = false,
@@ -345,6 +346,19 @@ export default function ApplicationCard({
                 Remind Follow-Up
               </div>
               <div className="py-1 space-y-0.5">
+                {onDraftFollowUp && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsFollowUpMenuOpen(false);
+                      onDraftFollowUp(application);
+                    }}
+                    className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-semibold text-blue-300 hover:bg-blue-950/40 hover:text-blue-200 transition text-left border-b border-slate-800/80 mb-1"
+                  >
+                    <span>✉️</span>
+                    <span>Draft Email</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => handleSetFollowUpDays(0)}

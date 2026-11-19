@@ -12,6 +12,7 @@ export default function KanbanColumn({
   applications = [],
   onStatusChange,
   onMarkFollowUp,
+  onDraftFollowUp,
 }) {
   const { id, title, icon, color, headerBg, badgeBg } = column;
 
@@ -65,6 +66,7 @@ export default function KanbanColumn({
                 application={app}
                 onStatusChange={onStatusChange}
                 onMarkFollowUp={onMarkFollowUp}
+                onDraftFollowUp={onDraftFollowUp}
               />
             ))
           ) : (

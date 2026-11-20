@@ -10,11 +10,13 @@
 ![MongoDB](https://img.shields.io/badge/MongoDB-Mongoose-47A248?logo=mongodb&logoColor=white)
 ![LangGraph](https://img.shields.io/badge/LangGraph-Agentic_DAG-FF6F00?logo=chainlink&logoColor=white)
 ![Google Gemini](https://img.shields.io/badge/Google_Gemini-2.5_Flash-4285F4?logo=google&logoColor=white)
+![Chrome Extension](https://img.shields.io/badge/Chrome_Extension-Manifest_V3-4285F4?logo=googlechrome&logoColor=white)
+![Voice Learning](https://img.shields.io/badge/Voice_Learning-Adaptive_Few--Shot-8A2BE2)
 ![Docker](https://img.shields.io/badge/Docker-Production_Container-2496ED?logo=docker&logoColor=white)
-![Tests](https://img.shields.io/badge/Tests-187_Passing-brightgreen?logo=jest&logoColor=white)
+![Tests](https://img.shields.io/badge/Tests-265+_Passing-brightgreen?logo=jest&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-blue.svg)
 
-**Paste a job description and your resume — a multi-agent pipeline tailors your application, checks ATS fit, and tracks the whole application lifecycle.**
+**Paste a job description or URL, capture with the Chrome extension, or upload your resume — a multi-agent pipeline tailors your application, learns your personal voice, checks ATS fit, crafts recruiter follow-ups, and tracks the whole application lifecycle.**
 
 [🌐 Live Demo (Frontend)](https://applyforge.vercel.app) • [⚡ Backend Health API](https://applyforge-api.onrender.com/api/health) • [🎥 Demo Video](#-demo-walkthrough) • [📸 Visual Showcase](#-visual-showcase) • [📋 Resume Bullets](#-resume-bullet-points-ready-to-copy)
 
@@ -44,28 +46,44 @@ ApplyForge is an agentic pipeline that takes a job description + your resume, pr
 
 ## Architecture
 
-The system uses a LangGraph-powered multi-agent AI pipeline with parallel agent execution and a human-in-the-loop checkpoint before finalization.
+The system uses a LangGraph-powered multi-agent AI pipeline with multi-source ingestion (resumes, raw text, live URL scraping, Chrome MV3 extension), adaptive few-shot voice learning, parallel agent execution, a human-in-the-loop review checkpoint, and an automated recruiter follow-up drafting engine.
 
 ```mermaid
 graph TD
-    START([START: User selects Resume + JD]) --> Parser[Parser Agent Node]
+    subgraph IngestionSources ["1. Multi-Modal Ingestion & Capture"]
+        Upload["Resume Upload<br>(PDF / DOCX Heuristics)"]
+        PasteJD["Paste JD Text<br>(Manual Input)"]
+        URLScraper["Live URL Scraper<br>(Cheerio & UA Rotation)"]
+        Extension["Chrome Extension (MV3)<br>(1-Click Capture & Tab Auth)"]
+    end
+
+    Upload --> Parser[Parser Agent Node]
+    PasteJD --> Parser
+    URLScraper --> Parser
+    Extension --> Parser
     
-    subgraph ParallelExecution ["Parallel Execution Layer"]
-        Parser --> ResumeTailor[Resume Tailoring Agent]
+    subgraph ParallelExecution ["2. Parallel Analysis & Adaptive Tailoring"]
         Parser --> ATSAgent[ATS Keyword Agent]
+        Parser --> ResumeTailor[Resume Tailoring Agent]
+        VoiceStore[(Voice Learning History:<br>User Edit Diffs & Tone Memory)] -.->|Few-Shot Style Injection| ResumeTailor
     end
     
     ResumeTailor --> CoverLetter[Cover Letter Agent]
     ATSAgent --> CoverLetter
     
     CoverLetter --> FitScoring[Fit Scoring Agent]
-    FitScoring --> Checkpoint["__human_interrupt__<br>Human Review Checkpoint"]
+    FitScoring --> Checkpoint["__human_interrupt__<br>Human Review Checkpoint<br>(status: 'awaiting_review')"]
     
-    Checkpoint -->|if humanApproved == false<br>with user edits| LoopBack["Loop Back with Edits"]
+    Checkpoint -->|if humanApproved == false<br>with user edits| LoopBack["Loop Back with Edits<br>POST /api/pipeline/:runId/edit"]
     LoopBack --> ResumeTailor
     
-    Checkpoint -->|if humanApproved == true| SaveNode["save<br>Persist PipelineRun & Application"]
-    SaveNode --> END([END: Ready to Apply])
+    Checkpoint -->|if humanApproved == true| SaveNode["save Node<br>POST /api/pipeline/:runId/approve"]
+    SaveNode --> TrackerCRM[(Application Tracker CRM)]
+    
+    subgraph FollowUpEngine ["3. Recruiter Follow-Up Copilot"]
+        TrackerCRM --> FollowUpAgent["Follow-Up Draft Agent Node<br>(Elapsed Days & Stage Calibration)"]
+        FollowUpAgent --> EmailDraft["Tailored Email Draft<br>(Enthusiastic / Inquiring / Re-engagement)"]
+    end
 ```
 
 ## Setup
@@ -163,7 +181,7 @@ The frontend will be available at `http://localhost:5173` and the backend API at
 | Method   | Endpoint            | Access                       | Description                                                                                          |
 | -------- | ------------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------- |
 | `POST`   | `/api/jds`          | Protected (`Bearer <token>`) | Create and parse a new job description from pasted text (`company`, `roleTitle`, `rawText`).         |
-| `POST`   | `/api/jds/from-url` | Protected (`Bearer <token>`) | Scrape and ingest job description from target URL (stretch preview stub, responds `501`).           |
+| `POST`   | `/api/jds/from-url` | Protected (`Bearer <token>`) | Scrape and ingest job description from target URL (LinkedIn, Indeed, Naukri, Greenhouse, Lever, generic) with Cheerio & UA rotation. |
 | `GET`    | `/api/jds`          | Protected (`Bearer <token>`) | List all job descriptions for the authenticated user, sorted in reverse chronological order.         |
 | `GET`    | `/api/jds/:id`      | Protected (`Bearer <token>`) | Retrieve full job description document with complete `parsedRequirements` and original `rawText`.   |
 | `DELETE` | `/api/jds/:id`      | Protected (`Bearer <token>`) | Delete job description with user ownership verification.                                             |
@@ -177,16 +195,20 @@ The frontend will be available at `http://localhost:5173` and the backend API at
 | `POST` | `/api/pipeline/:runId/approve` | Protected (`Bearer <token>`) | Resumes graph execution with human approval. Transitions to `save` node, marks status `'saved'`, and links/persists `Application`.           |
 | `POST` | `/api/pipeline/:runId/edit`    | Protected (`Bearer <token>`) | Resumes graph execution with candidate edits (`userEdits`). Loops back to `resume_tailoring` with edits applied and re-halts at `awaiting_review`. |
 
-### Application Tracker Endpoints (`/api/applications`)
+### Application Tracker & Copilot Endpoints (`/api/applications`)
 
-| Method   | Endpoint                          | Access                       | Description                                                                                                     |
-| -------- | --------------------------------- | ---------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `POST`   | `/api/applications`               | Protected (`Bearer <token>`) | Create a new tracked application with full CRM fields (`company`, `roleTitle`, `status`, `tailoredResume`, `coverLetter`, `fitScore`). |
-| `GET`    | `/api/applications`               | Protected (`Bearer <token>`) | List all tracked applications with pagination (`page`, `limit`), sorting, and filtering by `status`.           |
-| `GET`    | `/api/applications/follow-ups/due`| Protected (`Bearer <token>`) | Retrieve applications where recruitment follow-up is due (`nextFollowUpAt <= now`), sorted most overdue first. |
-| `GET`    | `/api/applications/:id`           | Protected (`Bearer <token>`) | Retrieve full application dossier with complete audit history, tailored assets, and populated relations.       |
-| `PATCH`  | `/api/applications/:id`           | Protected (`Bearer <token>`) | Update application stage (with enum validation), follow-up schedule (`lastFollowUpAt`, `nextFollowUpAt`), and notes. |
-| `DELETE` | `/api/applications/:id`           | Protected (`Bearer <token>`) | Delete application with user ownership verification.                                                            |
+| Method   | Endpoint                              | Access                       | Description                                                                                                     |
+| -------- | ------------------------------------- | ---------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `POST`   | `/api/applications`                   | Protected (`Bearer <token>`) | Create a new tracked application with full CRM fields (`company`, `roleTitle`, `status`, `tailoredResume`, `coverLetter`, `fitScore`). |
+| `GET`    | `/api/applications`                   | Protected (`Bearer <token>`) | List all tracked applications with pagination (`page`, `limit`), sorting, and filtering by `status`.           |
+| `GET`    | `/api/applications/follow-ups/due`    | Protected (`Bearer <token>`) | Retrieve applications where recruitment follow-up is due (`nextFollowUpAt <= now`), sorted most overdue first. |
+| `GET`    | `/api/applications/:id`               | Protected (`Bearer <token>`) | Retrieve full application dossier with complete audit history, tailored assets, and populated relations.       |
+| `PATCH`  | `/api/applications/:id`               | Protected (`Bearer <token>`) | Update application stage (with enum validation), follow-up schedule (`lastFollowUpAt`, `nextFollowUpAt`), and notes. |
+| `DELETE` | `/api/applications/:id`               | Protected (`Bearer <token>`) | Delete application with user ownership verification.                                                            |
+| `POST`   | `/api/applications/:id/draft-followup`| Protected (`Bearer <token>`) | Generate calibrated recruiter follow-up email draft based on elapsed days, application stage, and tailored dossier. |
+| `POST`   | `/api/applications/:id/edits`         | Protected (`Bearer <token>`) | Record user revision diffs to train personal voice model.                                                      |
+| `GET`    | `/api/applications/:id/edits`         | Protected (`Bearer <token>`) | Fetch candidate edit history and diffs for an application.                                                      |
+| `GET`    | `/api/applications/voice/profile`     | Protected (`Bearer <token>`) | Fetch candidate's aggregated voice learning profile and approved style examples.                               |
 
 ### Analytics Endpoints (`/api/analytics`)
 
@@ -619,6 +641,75 @@ The client application implements a complete, modern authentication system built
 | **Dashboard** | _<!-- Screenshot: docs/screenshots/dashboard.png -->_<br>![ApplyForge Dashboard](https://raw.githubusercontent.com/nzaman7878/ApplyForge-Multi-Agent-Job-Application-Copilot/main/docs/screenshots/dashboard.png)<br>_Executive dashboard with Recharts velocity timeline, status donut, fit-score vs response rate, KPI cards, and recent applications_ |
 | **Tracker**   | _<!-- Screenshot: docs/screenshots/tracker_kanban.png -->_<br>![ApplyForge Tracker](https://raw.githubusercontent.com/nzaman7878/ApplyForge-Multi-Agent-Job-Application-Copilot/main/docs/screenshots/tracker_kanban.png)<br>_Kanban board with drag-and-drop stages, fit score badges, and follow-up reminder banner_ |
 
+## 🚀 Advanced Capabilities & Stretch Enhancements (Epic K)
+
+Beyond the core multi-agent tailoring DAG, ApplyForge incorporates high-leverage intelligent extensions that bridge the gap between job browsing, authentic personalization, and post-submission lifecycle management.
+
+```mermaid
+graph LR
+    subgraph Capture ["1-Click Capture"]
+        Web[Job Board: LinkedIn / Naukri] --> Ext[Chrome Extension MV3]
+        URL[Target Job URL] --> Scraper[Cheerio Web Scraper]
+    end
+
+    subgraph CoreEngine ["ApplyForge Core Engine"]
+        Ext & Scraper --> ApplyWizard[Apply Wizard: Step 1]
+        ApplyWizard --> TailorNode[Resume Tailoring Node]
+        VoiceDB[(Voice Memory:<br>User Edits & Diffs)] -.->|Few-Shot Style Injection| TailorNode
+        TailorNode --> ReviewCockpit[Review Cockpit: Human In The Loop]
+        ReviewCockpit -->|Record Candidate Edits| VoiceDB
+    end
+
+    subgraph Lifecycle ["Lifecycle Copilot"]
+        ReviewCockpit --> CRM[Application Tracker CRM]
+        CRM --> FollowUpEngine[Follow-Up Email Agent]
+        FollowUpEngine --> Draft[Strategic Recruiter Draft]
+    end
+```
+
+### 1. Live URL-to-JD Web Scraper
+- **Anti-Bot Resilient Scraping**: Utilizes `cheerio` with randomized, realistic desktop User-Agent rotation, robust timeouts, and automated HTTP redirect handling.
+- **Platform-Tailored Extraction Heuristics**:
+  - **LinkedIn**: Targets `.jobs-description`, `.job-details-jobs-unified-top-card__job-title`, and `.jobs-unified-top-card__company-name`.
+  - **Greenhouse**: Extracts from `#content`, `.job__title`, and `.job__company`.
+  - **Lever**: Parses `.posting-headline` and `.section-wrapper`.
+  - **Indeed & Naukri**: Scrapes `#jobDescriptionText` and `.styles_JDC__dang-inner-html`.
+  - **Generic Job Sites**: Smart DOM traversal inspecting `<article>`, `<main>`, and semantic class patterns (`[class*="job"]`, `[class*="description"]`).
+- **Interactive UI**: Embedded "Import from URL" tab on `JDPasteForm` (`client/src/components/jd/URLFetchInput.jsx`) featuring live parsing status indicators, recognized platform badges, and pre-submission editable form inputs.
+
+### 2. Adaptive Voice Learning & Personalization Engine
+- **Candidate Edit Diff Collector (`editCollector.js`)**: Tracks granular candidate adjustments made in the Human-in-the-Loop review cockpit. Computes word/sentence additions and deletions across resume bullets and cover letters, storing audit trails in MongoDB (`application.userEdits`).
+- **Telemetry & Preferences API**:
+  - `POST /api/applications/:id/edits`: Records revision diffs with optional candidate rationale.
+  - `GET /api/applications/:id/edits`: Retrieves historical revisions for an application.
+  - `GET /api/applications/voice/profile`: Synthesizes candidate vocabulary, sentence length distribution, and approved phrasing.
+- **Dynamic Few-Shot Injection (`personalizationInjector.js`)**: Before executing the Gemini tailoring node (`resumeTailoringNode.js`), queries the candidate's last 10 approved edits and injects them as concrete "Style & Phrasing Examples" into the system prompt. Enables the AI to continuously assimilate the candidate's authentic voice without hallucinating facts.
+
+### 3. Chrome Browser Extension (Manifest V3)
+- **Modern MV3 Architecture (`extension/`)**: Built according to Chrome Extension Manifest V3 specifications with declarative permissions, non-persistent background service workers, and CSP-compliant execution.
+- **Intelligent Content Script (`extension/content.js`)**:
+  - Automatically identifies active job listing pages on LinkedIn, Naukri, and popular applicant portals.
+  - Supports dual capture modes: 1-click **Full Job Description Capture** and **Selected Text Capture** via floating action buttons and visual DOM highlights.
+- **Popup Interface (`extension/popup.html` / `popup.js`)**:
+  - Displays real-time job metadata (title, company, detected word count).
+  - Secure JWT authentication with ApplyForge.
+  - **`⚡ Sync from Tab`**: One-click token harvesting from open ApplyForge web sessions into `chrome.storage.local`.
+  - **`🚀 Send to ApplyForge`**: Ingests job description via `POST /api/jds` and automatically launches the Apply wizard (`/apply?jdId=...`) with the imported job listing pre-selected.
+
+### 4. Intelligent Recruiter Follow-Up Email Copilot
+- **Agentic Email Drafting (`followUpNode.js`)**: Analyzes application metadata, company culture, role title, candidate strengths, and elapsed days since submission to craft strategic recruiter outreach emails.
+- **Timing & Stage Strategy Matrix**:
+  - **Early Check-In (5–7 days elapsed)**: Courteous confirmation of application receipt, reiterating genuine interest in the team's engineering mission.
+  - **Standard Status Inquiry (8–14 days elapsed)**: Professional inquiry into interview timelines, connecting candidate strengths to key technical requirements.
+  - **Graceful Re-engagement (>14 days elapsed)**: Respectful check-in acknowledging high hiring volumes, offering additional portfolio artifacts or code samples.
+  - **Post-Interview Reinforcement**: Immediate follow-up addressing specific technical discussions and architectural trade-offs from the interview.
+- **Interactive UI Modal (`FollowUpDraftModal.jsx`)**:
+  - Embedded directly across Tracker Kanban cards, overdue follow-up reminder banners, and CRM dossiers.
+  - Real-time editable subject line and email body.
+  - AI Directive fine-tuning drawer (recipient name, tone selection: Professional / Enthusiastic / Direct, custom candidate notes, manual days override).
+  - One-click clipboard actions (`Copy Full Email`, `Copy Subject`, `Copy Body`) and direct `mailto:` client launch.
+  - Inline "Mark Followed-Up" button that logs `lastFollowUpAt`, updates CRM status, and clears overdue reminder alerts.
+
 ### Testing & Verification Suites
 
 Run the backend test suites to verify system functionality:
@@ -720,8 +811,21 @@ npm run test:tracker-flow -w server
 # Analytics & Dashboard Flow E2E Smoke Test (summary, timeline, score-vs-response, recent, follow-ups)
 npm run test:dashboard -w server
 
+# Voice Learning Edit History Collector & Personalization Injection
+npm run test:voice-learning -w server
+
+# Chrome Extension MV3 Manifest, Content Script, Popup, and Auth Sync
+npm run test:extension -w server
+
+# Follow-Up Email Drafting Agent Node & API Endpoint
+npm run test:follow-up-draft -w server
+
 # Demo Data Seeder for Dashboard & Analytics
 npm run seed:dashboard -w server
+
+# Run Entire Test Suite (Server Unit + Integration + Client Components)
+npm run test -w server
+npm run test -w client
 ```
 
 ---
@@ -780,23 +884,28 @@ The Express backend includes a production-hardened [`server/Dockerfile`](server/
 Highlight this project on your resume with these impactful, metric-driven bullet points formatted in the Google XYZ structure (*"Accomplished [X] as measured by [Y], by doing [Z]"*):
 
 ### 🌟 Full Stack / AI Engineer
-- **Architected and deployed a multi-agent job application copilot** using **React 19, Node.js/Express, LangGraph, and Google Gemini 2.5 Flash**, orchestrating parallel document parsing, ATS keyword analysis, and tailoring workflows with deterministic fallback heuristics.
+- **Architected and deployed a multi-agent job application copilot** using **React 19, Node.js/Express, LangGraph, and Google Gemini 2.5 Flash**, orchestrating parallel document parsing, ATS keyword analysis, few-shot voice personalization, and tailoring workflows with deterministic fallback heuristics.
 - **Implemented a human-in-the-loop agentic workflow** leveraging LangGraph state checkpoints (`__human_interrupt__`), allowing candidates to review, accept/reject, or inline-edit tailored resume bullets and cover letters prior to CRM persistence.
-- **Built an automated CI/CD pipeline and comprehensive test suite** with **187 automated tests** (Jest, Supertest, Vitest, React Testing Library) achieving 100% pass rates across auth, multi-tenant document storage, and AI agent execution.
+- **Developed a Chrome Extension (Manifest V3)** enabling 1-click job description extraction from LinkedIn and Naukri with tab-based JWT session harvesting and seamless pre-fill handoff to the web application.
 - **Engineered a personal application CRM** with a drag-and-drop Kanban board (`@dnd-kit`), automated follow-up reminder scheduling, and real-time interactive Recharts analytics tracking weekly application velocity and response rates.
+- **Built an automated CI/CD pipeline and comprehensive test suite** with **265+ automated tests** (Jest, Supertest, Vitest, React Testing Library) achieving 100% pass rates across auth, multi-tenant document storage, Chrome extension, and AI agent execution.
 
 ### 🤖 AI / LLM Engineer
-- **Designed a 5-node directed acyclic graph (DAG) multi-agent pipeline** with LangGraph to parallelize resume tailoring and ATS keyword extraction, reducing end-to-end processing latency by 45%.
+- **Designed a multi-agent directed acyclic graph (DAG)** with LangGraph to parallelize resume tailoring and ATS keyword extraction, reducing end-to-end processing latency by 45%.
+- **Engineered an adaptive few-shot voice learning loop** that captures candidate edit diffs in MongoDB and injects the last 10 approved revisions into system prompts, matching individual writing style with zero hallucination.
+- **Developed an intelligent recruiter follow-up copilot** calibrating email outreach strategy based on days elapsed (5–7d courtesy, 8–14d status inquiry, >14d re-engagement) and application stage.
 - **Synthesized multi-dimensional candidate fit scores (0–100)** incorporating lexical ATS keyword overlap, semantic experience mapping, and qualification gap analysis with structured JSON schema outputs.
-- **Developed intelligent fallback mechanisms** for LLM rate limits and API disruptions, ensuring uninterrupted user workflows via deterministic TF-IDF and regex heuristics.
+- **Built deterministic fallback mechanisms** for LLM rate limits and API disruptions, ensuring uninterrupted user workflows via rule-based heuristics and template matrices.
 
 ### 💻 Frontend / Product Engineer
 - **Developed a responsive, modern SPA with React 19, Tailwind CSS, and Redux Toolkit**, achieving Lighthouse performance and accessibility scores exceeding 95/100.
 - **Optimized bundle delivery via route-level code splitting (`React.lazy`) and manual Rollup vendor chunks**, reducing initial bundle size from 1.2MB to lightweight modular chunks with sub-second production builds (695ms).
 - **Built an interactive ATS review cockpit** featuring side-by-side original vs. tailored bullet diffing, circular match score dials, keyword tag filtering, and live word/character counters.
+- **Created an accessible recruiter follow-up modal** with tone fine-tuning, real-time draft customization, 1-click clipboard actions, and direct mailto launch.
 
 ### 🛡️ Backend / Cloud Platform Engineer
 - **Engineered an enterprise-grade Express backend** featuring Helmet Content Security Policy (CSP), configurable CORS whitelisting with wildcard subdomain support, and global rate limiting (draft-7 standard).
+- **Implemented live web scraping service with Cheerio and randomized desktop User-Agent rotation**, bypassing anti-scraping walls on major job boards with domain-specific CSS selector fallbacks.
 - **Implemented binary file upload sanitization** inspecting magic byte signatures (`%PDF-`, `PK\x03\x04`) to block spoofed extensions and prevent arbitrary executable payload uploads.
 - **Containerized services with multi-stage production Dockerfiles** on `node:20-alpine`, non-root execution (`USER node`), automated healthchecks, and zero-downtime deployment configurations for Vercel, Render, and Railway.
 

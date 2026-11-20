@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.1] - 2026-11-20
+
+### 🛠️ Comprehensive Codebase Audit & UI/UX Hardening
+
+#### Fixed
+- **Code Health & ESLint Standardization (Phase 1)**:
+  - Enabled `webextensions: true` in `.eslintrc.js` to eliminate 30+ undeclared `chrome` namespace global warnings across extension scripts.
+  - Corrected unnecessary regex character class escapes in `editCollector.js` and `content.js`.
+  - Cleaned up unused parameters in `fitScoringNode.js` (`_structuredJD`) and `content.js` (`_lastCapturedJob`).
+  - Documented empty storage catch block in `popup.js`.
+  - Achieved 0 ESLint errors across the monorepo (`client/`, `server/`, `extension/`).
+
+- **Backend Ingestion & Projection Architecture (Phase 2)**:
+  - Preserved `'extension'` source enum in `createJobDescription` (`jd.controller.js`). Prevents extension-captured JDs from being coerced to `'paste'`, maintaining accurate source telemetry.
+  - Updated `getJobDescriptions` projection in `jd.controller.js` to include `rawText` and `sourceUrl`. Resolves empty raw JD text in the Apply wizard and tracker.
+  - Added integration tests in `jd-create-endpoint.test.js` and `jd-crud-endpoints.test.js` asserting source tracking and projection integrity.
+
+- **Frontend UI/UX, Accessibility & Kanban Enhancements (Phase 3)**:
+  - Fixed WAI-ARIA nested interactive controls violation in `KanbanCard.jsx` by converting `<div role="button">` to semantic `<div role="article">`. Enables assistive tech and keyboard navigation to operate inner stage dropdown and follow-up action buttons without conflict.
+  - Resolved false `'Drafted'` timestamp on active applications in `ApplicationCard.jsx` by adding fallback to `application.createdAt` when `appliedAt` is absent.
+  - Centered Move Stage popover (`left-1/2 -translate-x-1/2`) and added viewport boundary constraints to Follow-up popover in `ApplicationCard.jsx`, eliminating clipping on mobile devices.
+  - Deduplicated 45-line initial telemetry fetch logic in `Dashboard.jsx`, consolidating state updates into `loadDashboardData(false)`.
+  - Added `'Extension Ingested'` badge and external job posting link to `JDRequirementsPanel.jsx`.
+  - Added 5 unit tests in `ApplicationCard.test.jsx` verifying initials rendering, date calculations, popover actions, and WAI-ARIA compliance.
+
+---
+
 ## [1.2.0] - 2026-11-20
 
 ### 🚀 Epic K: Stretch Features & Intelligent Extensions (Phases 101–110)

@@ -65,12 +65,20 @@ export default function Navbar() {
                 <NavLink to="/tracker" className={getNavLinkClass}>
                   Tracker
                 </NavLink>
+                <NavLink to="/docs" className={getNavLinkClass}>
+                  Docs
+                </NavLink>
               </nav>
             )}
           </div>
 
           {/* Right: User profile + Auth buttons (Desktop) */}
           <div className="hidden md:flex items-center gap-3">
+            {!isAuthenticated && (
+              <NavLink to="/docs" className={getNavLinkClass}>
+                Documentation
+              </NavLink>
+            )}
             {isAuthenticated ? (
               <div className="flex items-center gap-3">
                 {/* User badge */}
@@ -189,6 +197,9 @@ export default function Navbar() {
                 <NavLink to="/tracker" onClick={closeMobileMenu} className={getMobileNavLinkClass}>
                   Tracker
                 </NavLink>
+                <NavLink to="/docs" onClick={closeMobileMenu} className={getMobileNavLinkClass}>
+                  Documentation
+                </NavLink>
               </nav>
 
               {/* Mobile Logout */}
@@ -205,6 +216,11 @@ export default function Navbar() {
             </>
           ) : (
             <div className="space-y-2 pt-1">
+              <Link to="/docs" onClick={closeMobileMenu} className="block">
+                <Button variant="ghost" size="md" className="w-full justify-center text-slate-300">
+                  Documentation
+                </Button>
+              </Link>
               <Link to="/login" onClick={closeMobileMenu} className="block">
                 <Button variant="secondary" size="md" className="w-full justify-center">
                   Sign In

@@ -11,6 +11,7 @@ const Dashboard = lazy(() => import('../pages/Dashboard'));
 const Apply = lazy(() => import('../pages/Apply'));
 const Tracker = lazy(() => import('../pages/Tracker'));
 const ApplicationDetail = lazy(() => import('../pages/ApplicationDetail'));
+const Docs = lazy(() => import('../pages/Docs'));
 
 const withSuspense = (Component, message = 'Loading ApplyForge...') => (
   <Suspense fallback={<PageLoader message={message} />}>
@@ -70,6 +71,10 @@ export const routes = [
         {withSuspense(ApplicationDetail, 'Loading Application Details...')}
       </PrivateRoute>
     ),
+  },
+  {
+    path: '/docs',
+    element: withSuspense(Docs, 'Loading Documentation Hub...'),
   },
 ];
 

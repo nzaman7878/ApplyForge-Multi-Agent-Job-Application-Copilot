@@ -18,7 +18,7 @@
 
 **Paste a job description or URL, capture with the Chrome extension, or upload your resume — a multi-agent pipeline tailors your application, learns your personal voice, checks ATS fit, crafts recruiter follow-ups, and tracks the whole application lifecycle.**
 
-[🌐 Live Demo (Frontend)](https://applyforge.vercel.app) • [⚡ Backend Health API](https://applyforge-api.onrender.com/api/health) • [🎥 Demo Video](#-demo-walkthrough) • [📸 Visual Showcase](#-visual-showcase) • [📋 Resume Bullets](#-resume-bullet-points-ready-to-copy)
+[🌐 Live Demo (Frontend)](https://applyforge.vercel.app) • [⚡ Backend Health API](https://applyforge-api.onrender.com/api/health) • [📚 Documentation Hub](docs/README.md) • [🎥 Demo Video](#-demo-walkthrough) • [📸 Visual Showcase](#-visual-showcase) • [📋 Resume Bullets](#-resume-bullet-points-ready-to-copy)
 
 ---
 
@@ -43,6 +43,29 @@ ApplyForge is an agentic pipeline that takes a job description + your resume, pr
 | Landing Page Hero & Feature Pipeline | Clean Authenticated Flow |
 | :---: | :---: |
 | ![Hero Preview](docs/screenshots/hero.png) | ![Login Preview](docs/screenshots/login.png) |
+
+## 📚 Technical Documentation Hub
+
+ApplyForge includes a comprehensive documentation suite covering architecture, APIs, security, testing, and operations:
+
+| Document | Focus Area | Description |
+| :--- | :--- | :--- |
+| [**ARCHITECTURE.md**](docs/ARCHITECTURE.md) | System Design | Multi-Agent LangGraph DAG topology, parallel execution, and state schemas |
+| [**API.md**](docs/API.md) | Reference | Full REST API specification (Auth, Resumes, JDs, Pipeline, CRM, Analytics) |
+| [**AUTH_SECURITY.md**](docs/AUTH_SECURITY.md) | Security | JWT/Refresh tokens, password hashing, CSP headers, rate limiting, and sanitization |
+| [**DATABASE.md**](docs/DATABASE.md) | Data Models | MongoDB schemas, Mongoose models, relations, indexing, and connection pooling |
+| [**DEBUGGING.md**](docs/DEBUGGING.md) | Runbooks | Diagnostic runbooks, LLM fallbacks, extension DevTools, and token refresh loops |
+| [**DESIGN.md**](docs/DESIGN.md) | UI / UX | Design tokens, color palette, glassmorphism UI, and WAI-ARIA accessibility |
+| [**FEATURE_DEVELOPMENT.md**](docs/FEATURE_DEVELOPMENT.md) | Dev Guide | Developer guide for adding agent nodes, REST endpoints, and UI components |
+| [**IMPLEMENTATION_PLAN.md**](docs/IMPLEMENTATION_PLAN.md) | Roadmap | Complete 110-phase master roadmap across Epics A through K with atomic commits |
+| [**INTEGRATIONS.md**](docs/INTEGRATIONS.md) | Ecosystem | Integrations with Gemini 2.5 Flash, Cloudinary, Cheerio, and Chrome MV3 |
+| [**MCP.md**](docs/MCP.md) | AI Protocols | Model Context Protocol (MCP) server specifications, tools, and resource URIs |
+| [**PRD.md**](docs/PRD.md) | Product | Product Requirements Document: Vision, user personas, FR-1 to FR-8, and KPIs |
+| [**PRODUCTION_GO_LIVE_SIGNOFF.md**](docs/PRODUCTION_GO_LIVE_SIGNOFF.md) | QA & Audit | Production release audit checklist, 265+ passing tests, and sign-off certification |
+| [**PRODUCTION_LAUNCH_ROADMAP.md**](docs/PRODUCTION_LAUNCH_ROADMAP.md) | Operations | Phased rollout plan, Day-0 cutover, 30/60/90 milestones, and disaster recovery |
+| [**SETUP.md**](docs/SETUP.md) | Onboarding | Complete local development setup, environment variables, Docker Compose, seeding |
+| [**TESTING.md**](docs/TESTING.md) | Quality Assurance | Test pyramid, Jest, Supertest, Vitest, CI/CD workflow, and 30+ test commands |
+| [**Documentation Hub**](docs/README.md) | Overview Index | Master Documentation Hub with category matrix and system diagram |
 
 ## Architecture
 

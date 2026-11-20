@@ -37,6 +37,12 @@ export default function Home() {
           >
             Create Account
           </Link>
+          <Link
+            to="/docs"
+            className="px-7 py-3 rounded-xl bg-slate-900/60 hover:bg-slate-800 text-blue-400 hover:text-blue-300 font-semibold transition border border-blue-500/30 hover:border-blue-500/50 active:scale-98"
+          >
+            Explore Docs 📚
+          </Link>
         </div>
 
         {/* Optimized Hero Visual with fetchpriority high and explicit aspect ratio */}
@@ -54,8 +60,22 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="py-6 border-t border-slate-900 text-center text-xs text-slate-400">
-        ApplyForge &copy; {new Date().getFullYear()} — Production Ready Multi-Agent Copilot
+      <footer className="py-6 border-t border-slate-900 text-center text-xs text-slate-400 flex flex-col sm:flex-row items-center justify-between max-w-6xl mx-auto px-4 w-full gap-3">
+        <span>ApplyForge &copy; {new Date().getFullYear()} — Production Ready Multi-Agent Copilot</span>
+        <div className="flex items-center gap-4 text-slate-400">
+          <Link to="/docs" className="hover:text-blue-400 transition underline underline-offset-4">
+            Documentation Hub
+          </Link>
+          <span>•</span>
+          <a
+            href="https://github.com/nzaman7878/ApplyForge-Multi-Agent-Job-Application-Copilot"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-blue-400 transition"
+          >
+            GitHub
+          </a>
+        </div>
       </footer>
     </div>
   );

@@ -43,8 +43,7 @@ export default function KanbanCard({
       style={style}
       {...attributes}
       {...listeners}
-      tabIndex={0}
-      role="button"
+      role="article"
       aria-label={`Application for ${application?.roleTitle || application?.role || 'Position'} at ${application?.company || 'Company'}`}
       className={`select-none cursor-grab active:cursor-grabbing transition-opacity ${
         isDragging ? 'opacity-30' : ''

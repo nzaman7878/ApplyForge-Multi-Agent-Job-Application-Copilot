@@ -116,7 +116,11 @@ export default function JDRequirementsPanel({
             </h2>
             <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
               <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-slate-800 text-slate-300 border border-slate-700">
-                {jobDescription.source === 'url' ? 'URL Ingested' : 'Pasted JD'}
+                {jobDescription.source === 'url'
+                  ? 'URL Ingested'
+                  : jobDescription.source === 'extension'
+                  ? 'Extension Ingested'
+                  : 'Pasted JD'}
               </span>
               <span>•</span>
               <span>{totalRequirementsCount} criteria identified</span>
@@ -124,6 +128,20 @@ export default function JDRequirementsPanel({
                 <>
                   <span>•</span>
                   <span>{formatDate(jobDescription.createdAt)}</span>
+                </>
+              )}
+              {jobDescription.sourceUrl && (
+                <>
+                  <span>•</span>
+                  <a
+                    href={jobDescription.sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-400 hover:text-blue-300 underline underline-offset-2 flex items-center gap-0.5"
+                    title={jobDescription.sourceUrl}
+                  >
+                    <span>Original Posting ↗</span>
+                  </a>
                 </>
               )}
             </div>

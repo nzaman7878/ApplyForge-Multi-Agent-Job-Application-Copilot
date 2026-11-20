@@ -93,62 +93,8 @@ export default function Dashboard() {
   }, [toast]);
 
   useEffect(() => {
-    let isMounted = true;
-
-    async function initialFetch() {
-      try {
-        const [
-          summaryRes,
-          timelineRes,
-          scoreRes,
-          recentAppsRes,
-          followUpsRes,
-        ] = await Promise.allSettled([
-          api.get('/api/analytics/summary'),
-          api.get('/api/analytics/timeline'),
-          api.get('/api/analytics/score-vs-response'),
-          api.get('/api/applications?limit=6'),
-          api.get('/api/applications/follow-ups/due'),
-        ]);
-
-        if (!isMounted) return;
-
-        if (summaryRes.status === 'fulfilled' && summaryRes.value?.data?.summary) {
-          setSummary(summaryRes.value.data.summary);
-        }
-        if (timelineRes.status === 'fulfilled' && timelineRes.value?.data?.timeline) {
-          setTimeline(timelineRes.value.data.timeline);
-        }
-        if (scoreRes.status === 'fulfilled' && scoreRes.value?.data) {
-          setScoreData(scoreRes.value.data);
-        }
-        if (
-          recentAppsRes.status === 'fulfilled' &&
-          recentAppsRes.value?.data?.applications
-        ) {
-          setRecentApplications(recentAppsRes.value.data.applications);
-        }
-        if (followUpsRes.status === 'fulfilled') {
-          const data = followUpsRes.value.data;
-          const dueList = data?.dueFollowUps || data?.applications || [];
-          setDueFollowUps(dueList);
-          setDueCount(data?.count !== undefined ? data.count : dueList.length);
-        }
-      } catch (error) {
-        console.error('[Dashboard] Initial fetch error:', error);
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    initialFetch();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+    loadDashboardData(false);
+  }, [loadDashboardData]);
 
 
 

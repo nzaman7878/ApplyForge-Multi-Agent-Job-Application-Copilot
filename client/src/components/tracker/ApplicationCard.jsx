@@ -101,7 +101,9 @@ export default function ApplicationCard({
   const statusInfo = getStatusInfo(status);
   const companyColor = getCompanyLogoColor(company);
   const initials = getCompanyInitials(company);
-  const daysSinceApplied = getDaysSinceApplied(appliedAt || appliedDate);
+  const daysSinceApplied = getDaysSinceApplied(
+    appliedAt || appliedDate || (status !== 'wishlist' && status !== 'drafted' ? application?.createdAt : null)
+  );
 
   // Close menus on outside click
   useEffect(() => {
@@ -287,7 +289,7 @@ export default function ApplicationCard({
 
           {/* Status Dropdown Popover */}
           {isStatusMenuOpen && (
-            <div className="absolute left-0 bottom-full mb-1.5 w-36 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-1 z-40">
+            <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-1.5 w-36 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-1 z-40">
               <div className="px-2 py-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-800">
                 Move Stage
               </div>
@@ -341,7 +343,7 @@ export default function ApplicationCard({
 
           {/* Follow-up schedule dropdown */}
           {isFollowUpMenuOpen && (
-            <div className="absolute right-0 bottom-full mb-1.5 w-40 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-1 z-40">
+            <div className="absolute right-0 bottom-full mb-1.5 w-40 max-w-[calc(100vw-2rem)] bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-1 z-40">
               <div className="px-2 py-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-800">
                 Remind Follow-Up
               </div>

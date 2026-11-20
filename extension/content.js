@@ -5,7 +5,7 @@
  */
 
 (function () {
-  let lastCapturedJob = null;
+  let _lastCapturedJob = null;
   let lastTargetElement = null;
 
   /**
@@ -89,7 +89,7 @@
     str = str.replace(/<svg\b[^<]*(?:(?!<\/svg>)<[^<]*)*<\/svg>/gi, '');
     str = str.replace(/<li[^>]*>/gi, '\n• ');
     str = str.replace(/<\/(p|div|h[1-6]|tr|li)>/gi, '\n');
-    str = str.replace(/<br\s*[\/]?>/gi, '\n');
+    str = str.replace(/<br\s*[/]?>/gi, '\n');
     str = str.replace(/<[^>]+>/g, ' ');
     str = str.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
     return str

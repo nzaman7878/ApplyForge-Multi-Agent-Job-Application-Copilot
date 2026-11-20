@@ -23,7 +23,7 @@ const tokenizeWords = (text = '') => {
  */
 const extractActionVerb = (text = '') => {
   if (!text || typeof text !== 'string') return '';
-  const cleaned = text.replace(/^[•\-\*\d\.\)\s]+/, '').trim();
+  const cleaned = text.replace(/^[•\-*\d.)\s]+/, '').trim();
   const firstWord = cleaned.split(/\s+/)[0] || '';
   return firstWord.replace(/[^\w]/g, '');
 };

@@ -505,7 +505,9 @@ async function handleSyncTokenFromTab() {
           let user = null;
           try {
             user = JSON.parse(localStorage.getItem('user'));
-          } catch {}
+          } catch (_err) {
+            /* ignore invalid json in storage */
+          }
           return { token, user };
         },
       });

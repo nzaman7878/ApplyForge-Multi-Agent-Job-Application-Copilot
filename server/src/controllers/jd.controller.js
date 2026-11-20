@@ -50,7 +50,7 @@ const createJobDescription = async (req, res) => {
       roleTitle: roleTitle.trim(),
       rawText: rawText.trim(),
       parsedRequirements,
-      source: source === 'url' ? 'url' : 'paste',
+      source: ['paste', 'url', 'extension'].includes(source) ? source : 'paste',
       sourceUrl: req.body.sourceUrl || null,
       createdAt: new Date(),
     });
@@ -193,7 +193,7 @@ const getJobDescriptions = async (req, res) => {
   try {
     const jds = await JobDescription.find({ userId: req.user._id })
       .sort({ createdAt: -1 })
-      .select('company roleTitle source parsedRequirements createdAt updatedAt');
+      .select('company roleTitle source sourceUrl rawText parsedRequirements createdAt updatedAt');
 
     const formattedJds = jds.map((jd) => {
       const json = jd.toJSON();

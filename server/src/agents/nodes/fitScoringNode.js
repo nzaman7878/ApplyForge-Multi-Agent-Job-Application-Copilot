@@ -123,7 +123,7 @@ function determineTier(score) {
 function generateFitScoreHeuristic({
   atsReport,
   structuredResume,
-  structuredJD,
+  _structuredJD,
   tailoredBullets = [],
 }) {
   const atsScore = atsReport?.overallScore ?? 70;

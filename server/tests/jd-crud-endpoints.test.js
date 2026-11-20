@@ -137,8 +137,11 @@ async function testJdCrudEndpoints() {
     if (userAJds[1].id !== jdA1._id.toString()) {
       throw new Error(`Expected older JD (Alpha Corp) second, got: ${userAJds[1].company}`);
     }
+    if (!userAJds[0].rawText || userAJds[0].rawText !== jdA2.rawText) {
+      throw new Error(`Expected projected rawText to be present on listed JD, got: ${userAJds[0].rawText}`);
+    }
     console.log('✔ User A receives their 2 JDs in reverse chronological order:');
-    console.log(`  1: ${userAJds[0].company} - ${userAJds[0].roleTitle}`);
+    console.log(`  1: ${userAJds[0].company} - ${userAJds[0].roleTitle} (rawText projected: ${userAJds[0].rawText.length} chars)`);
     console.log(`  2: ${userAJds[1].company} - ${userAJds[1].roleTitle}`);
 
     // [Test 4] User isolation on list (User B only sees 1 JD)

@@ -260,6 +260,28 @@ NICE TO HAVE:
     }
     console.log('✔ Verified user isolation and accurate userId mapping');
 
+    // [Test 8] Extension source tracking
+    console.log('\n[Test 8] Verifying extension source tracking and URL persistence...');
+    const extensionRes = await request(app)
+      .post('/api/jds')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        company: 'Stripe',
+        roleTitle: 'Fullstack Engineer',
+        rawText: 'Requirements: 3+ years Node.js, React, and REST APIs.',
+        source: 'extension',
+        sourceUrl: 'https://www.linkedin.com/jobs/view/99998888',
+      })
+      .expect(201);
+
+    if (extensionRes.body.source !== 'extension') {
+      throw new Error(`Expected source to be 'extension', got '${extensionRes.body.source}'`);
+    }
+    if (extensionRes.body.sourceUrl !== 'https://www.linkedin.com/jobs/view/99998888') {
+      throw new Error(`Expected sourceUrl to match, got '${extensionRes.body.sourceUrl}'`);
+    }
+    console.log('✔ Verified extension source tracking and sourceUrl persistence');
+
     console.log('\n=============================================');
     console.log('🎉 ALL POST /api/jds ENDPOINT TESTS PASSED');
     console.log('=============================================\n');
